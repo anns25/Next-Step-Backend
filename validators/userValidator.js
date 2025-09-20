@@ -1,0 +1,164 @@
+// validators/userValidator.js
+import { check, body } from "express-validator";
+
+// Signup validation rules
+export const validateSignup = [
+  check("firstName")
+    .notEmpty().withMessage("First name is required")
+    .isString().withMessage("First name must be a string")
+    .trim(),
+
+  check("lastName")
+    .notEmpty().withMessage("Last name is required")
+    .isString().withMessage("Last name must be a string")
+    .trim(),
+
+  check("email")
+    .notEmpty().withMessage("Email is required")
+    .isEmail().withMessage("Please enter a valid email")
+    .normalizeEmail(),
+
+  check("password")
+    .notEmpty().withMessage("Password is required")
+    .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
+
+  check("role")
+    .optional()
+    .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
+];
+
+// Login validation rules
+export const validateLogin = [
+  check("email")
+    .notEmpty().withMessage("Email is required")
+    .isEmail().withMessage("Please enter a valid email")
+    .normalizeEmail(),
+
+  check("password")
+    .notEmpty().withMessage("Password is required")
+];
+
+
+
+// Update user validation rules
+export const validateUpdateUser = [
+  check("firstName")
+    .optional()
+    .isString().withMessage("First name must be a string")
+    .trim(),
+
+  check("lastName")
+    .optional()
+    .isString().withMessage("Last name must be a string")
+    .trim(),
+
+  check("email")
+    .optional()
+    .isEmail().withMessage("Please enter a valid email")
+    .normalizeEmail(),
+
+  check("password")
+    .optional()
+    .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
+
+  check("role")
+    .optional()
+    .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
+
+  check("workStatus")
+    .optional()
+    .isIn(["fresher", "experienced"]).withMessage("Work status must be 'fresher' or 'experienced'"),
+
+  // Skills
+  check("skills")
+    .optional()
+    .isArray().withMessage("Skills must be an array"),
+
+  // Experience array
+  check("experience")
+    .optional()
+    .isArray().withMessage("Experience must be an array"),
+  check("experience.*.company")
+    .optional()
+    .isString().withMessage("Company name must be a string"),
+  check("experience.*.position")
+    .optional()
+    .isString().withMessage("Position must be a string"),
+  check("experience.*.startDate")
+    .optional()
+    .isISO8601().withMessage("Start date must be a valid date"),
+  check("experience.*.endDate")
+    .optional()
+    .isISO8601().withMessage("End date must be a valid date"),
+
+  // Education array
+  check("education")
+    .optional()
+    .isArray().withMessage("Education must be an array"),
+  check("education.*.institution")
+    .optional()
+    .isString().withMessage("Institution must be a string"),
+  check("education.*.degree")
+    .optional()
+    .isString().withMessage("Degree must be a string"),
+  check("education.*.fieldOfStudy")
+    .optional()
+    .isString().withMessage("Field of study must be a string"),
+  check("education.*.startDate")
+    .optional()
+    .isISO8601().withMessage("Start date must be a valid date"),
+  check("education.*.endDate")
+    .optional()
+    .isISO8601().withMessage("End date must be a valid date"),
+
+  // Location object
+  check("location.city")
+    .optional()
+    .isString().withMessage("City must be a string"),
+  check("location.state")
+    .optional()
+    .isString().withMessage("State must be a string"),
+  check("location.country")
+    .optional()
+    .isString().withMessage("Country must be a string"),
+
+  // Preferences object
+  check("preferences.jobTypes")
+    .optional()
+    .isArray().withMessage("Job types must be an array"),
+  check("preferences.salaryRange.min")
+    .optional()
+    .isNumeric().withMessage("Minimum salary must be a number"),
+  check("preferences.salaryRange.max")
+    .optional()
+    .isNumeric().withMessage("Maximum salary must be a number"),
+  check("preferences.salaryRange.currency")
+    .optional()
+    .isString().withMessage("Currency must be a string"),
+  check("preferences.remoteWork")
+    .optional()
+    .isBoolean().withMessage("Remote work must be true or false"),
+  check("preferences.notifications.email")
+    .optional()
+    .isBoolean().withMessage("Email notification must be true or false"),
+  check("preferences.notifications.push")
+    .optional()
+    .isBoolean().withMessage("Push notification must be true or false"),
+
+  // Custom conditional validation: if workStatus = experienced, require experience
+  body().custom((value) => {
+    if (value.workStatus === "experienced") {
+      if (!value.experience || !Array.isArray(value.experience) || value.experience.length === 0) {
+        throw new Error("At least one experience entry is required for experienced users");
+      }
+      value.experience.forEach((exp, i) => {
+        if (!exp.company || !exp.position || !exp.startDate) {
+          throw new Error(`Experience entry #${i + 1} must have company, position, and startDate`);
+        }
+      });
+    }
+    return true;
+  })
+];
+
+
