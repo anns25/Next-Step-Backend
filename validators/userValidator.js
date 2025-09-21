@@ -91,6 +91,39 @@ export const validateUpdateUser = [
     .optional()
     .isISO8601().withMessage("End date must be a valid date"),
 
+  // Add date range validation (around line 148, before the custom validation)
+  check("experience.*.startDate")
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const date = new Date(value);
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 60;
+      const maxYear = currentYear;
+
+      if (date.getFullYear() < minYear || date.getFullYear() > maxYear) {
+        throw new Error(`Start date must be between ${minYear} and ${maxYear}`);
+      }
+      return true;
+    }),
+
+  check("experience.*.endDate")
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const date = new Date(value);
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 60;
+      const maxYear = currentYear + 2;
+
+      if (date.getFullYear() < minYear || date.getFullYear() > maxYear) {
+        throw new Error(`End date must be between ${minYear} and ${maxYear}`);
+      }
+      return true;
+    }),
+
+
+
   // Education array
   check("education")
     .optional()
@@ -111,6 +144,38 @@ export const validateUpdateUser = [
     .optional()
     .isISO8601().withMessage("End date must be a valid date"),
 
+  check("education.*.startDate")
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const date = new Date(value);
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 60;
+      const maxYear = currentYear;
+
+      if (date.getFullYear() < minYear || date.getFullYear() > maxYear) {
+        throw new Error(`Start date must be between ${minYear} and ${maxYear}`);
+      }
+      return true;
+    }),
+
+  check("education.*.endDate")
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const date = new Date(value);
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 60;
+      const maxYear = currentYear + 2;
+
+      if (date.getFullYear() < minYear || date.getFullYear() > maxYear) {
+        throw new Error(`End date must be between ${minYear} and ${maxYear}`);
+      }
+      return true;
+    }),
+
+
+
   // Location object
   check("location.city")
     .optional()
@@ -121,6 +186,10 @@ export const validateUpdateUser = [
   check("location.country")
     .optional()
     .isString().withMessage("Country must be a string"),
+  check("preferences.jobTypes.*")
+    .optional()
+    .isIn(["full-time", "part-time", "contract", "internship", "remote"])
+    .withMessage("Each job type must be one of : full-time, part-time, contract, internship, remote"),
 
   // Preferences object
   check("preferences.jobTypes")
