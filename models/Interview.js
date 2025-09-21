@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose"
 
 const interviewSchema = new mongoose.Schema({
   application: {
@@ -112,4 +112,4 @@ interviewSchema.methods.sendReminder = function() {
   return this.save();
 };
 
-module.exports = mongoose.model('Interview', interviewSchema);
+export default mongoose.model('Interview', interviewSchema);

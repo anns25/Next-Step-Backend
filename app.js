@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import path from 'path'
 import user from "./routes/user.js";
 import company from "./routes/company.js";
+import admin from "./routes/admin.js"
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,9 +33,8 @@ app.get("/", (req, res) =>{
 });
 
 app.use('/user', user);
-console.log("Company routes mounted at /company");
-
 app.use('/company', company);
+app.use('/admin', admin);
 
 app.listen(port, (req, res) =>{
     console.log("Server running...", port);

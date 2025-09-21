@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const jobAlertSchema = new mongoose.Schema({
   user: {
@@ -144,4 +144,4 @@ jobAlertSchema.methods.matchesJob = function(job) {
   return true;
 };
 
-module.exports = mongoose.model('JobAlert', jobAlertSchema);
+export default mongoose.model('JobAlert', jobAlertSchema);

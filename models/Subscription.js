@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const subscriptionSchema = new mongoose.Schema({
   user: {
@@ -42,4 +42,4 @@ subscriptionSchema.index({ user: 1, company: 1 }, { unique: true });
 subscriptionSchema.index({ company: 1, isActive: 1 });
 subscriptionSchema.index({ user: 1, isActive: 1 });
 
-module.exports = mongoose.model('Subscription', subscriptionSchema);
+export default mongoose.model('Subscription', subscriptionSchema);

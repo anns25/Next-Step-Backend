@@ -29,32 +29,38 @@ export const registerCompany = async (req, res) => {
       logo,
       contact,
       password,
-      location // will be hashed by pre("save")
+      location,
+      status : 'pending',
+      canPostJobs : false
     });
 
     await newCompany.save();
 
+    //don't send login credentials yet, wait for approval
     // Generate JWT
-    const token = jwt.sign(
-      {
-        _id: newCompany._id,
-        name: newCompany.name,
-        email: newCompany.contact.email,
-        industry: newCompany.industry,
-        logo: newCompany.logo,
-        country: newCompany.location.country,
-      },
-      SECRET_KEY,
-      { expiresIn: "1d" }
-    );
+    // const token = jwt.sign(
+    //   {
+    //     _id: newCompany._id,
+    //     name: newCompany.name,
+    //     email: newCompany.contact.email,
+    //     industry: newCompany.industry,
+    //     logo: newCompany.logo,
+    //     country: newCompany.location.country,
+    //   },
+    //   SECRET_KEY,
+    //   { expiresIn: "1d" }
+    // );
 
     res.status(201).json({
-      data: token,
-      company: newCompany,
-      message: "New company profile created",
+      message : 'Company registration submitted for approval',
+      company : {
+        _id : company._id,
+        name : company.name,
+        status : company.status
+      }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
 

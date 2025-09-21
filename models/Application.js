@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const applicationSchema = new mongoose.Schema({
   user: {
@@ -97,4 +97,4 @@ applicationSchema.methods.updateStatus = function(newStatus, notes = '') {
   return this.save();
 };
 
-module.exports = mongoose.model('Application', applicationSchema);
+export default mongoose.model('Application', applicationSchema);

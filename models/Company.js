@@ -64,6 +64,10 @@ const companySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Company capabilities
+    canPostJobs: { type: Boolean, default: false },
+    maxJobs: { type: Number, default: 10 },
+    // Company Stats
     totalJobs: {
       type: Number,
       default: 0,
@@ -72,9 +76,35 @@ const companySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
     is_deleted: {
       type: Boolean,
       default: false
+    },
+    // Status and permissions
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'suspended', 'rejected'],
+      default: 'pending'
+    },
+
+    // Admin management
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      default : null
+    },
+    approvedAt: {
+      type : Date,
+      default : null
+    }, 
+    rejectionReason: {
+      type: String, 
+      default : ''
     },
     lastLogin: Date,
   },

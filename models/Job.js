@@ -1,16 +1,16 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema({
   title: {
     type: String,
     required: [true, 'Job title is required'],
     trim: true,
-    maxlength: [100, 'Job title cannot exceed 100 characters']
+    maxLength: [100, 'Job title cannot exceed 100 characters']
   },
   description: {
     type: String,
     required: [true, 'Job description is required'],
-    maxlength: [5000, 'Description cannot exceed 5000 characters']
+    maxLength: [5000, 'Description cannot exceed 5000 characters']
   },
   company: {
     type: mongoose.Schema.Types.ObjectId,
@@ -126,4 +126,4 @@ jobSchema.methods.incrementViewCount = function() {
   return this.save();
 };
 
-module.exports = mongoose.model('Job', jobSchema);
+export default mongoose.model('Job', jobSchema);
