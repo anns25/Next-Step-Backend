@@ -1,108 +1,115 @@
-import Company from "../models/Company.js";
-import jwt from "jsonwebtoken";
+import Company from '../models/Company.js';
 
-// Company Signup
-export const registerCompany = async (req, res) => {
+// Get all companies (public)
+export const getAllCompanies = async (req, res) => {
   try {
-    const SECRET_KEY = process.env.SECRET_KEY;
-    const { name, description, industry, contact, password, website, location } = req.body;
-
-
-    // Check if logo uploaded
-    let logo = "";
-    if (req.file) {
-      logo = req.file.filename; // multer saves filename
-    }
+    const { status, page = 1, limit = 10, search, industry } = req.query;
     
-    // Check if company already exists (by contact email)
-    const existingCompany = await Company.findOne({ "contact.email": contact.email });
-    if (existingCompany) {
-      return res.status(409).json({ message: "Company already exists" });
+    const query = { is_deleted: false, status: 'active' }; // Only show active companies publicly
+    if (industry) query.industry = industry;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { industry: { $regex: search, $options: 'i' } },
+        { 'location.city': { $regex: search, $options: 'i' } }
+      ];
     }
 
-    // Create new company
-    const newCompany = new Company({
-      name,
-      description,
-      industry,
-      website,
-      logo,
-      contact,
-      password,
-      location,
-      status : 'pending',
-      canPostJobs : false
+    const companies = await Company.find(query)
+      .populate('createdBy', 'firstName lastName')
+      .select('-contact.email -contact.phone -contact.linkedin -contact.twitter') // Hide sensitive contact info
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Company.countDocuments(query);
+
+    res.json({
+      companies,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
     });
-
-    await newCompany.save();
-
-    //don't send login credentials yet, wait for approval
-    // Generate JWT
-    // const token = jwt.sign(
-    //   {
-    //     _id: newCompany._id,
-    //     name: newCompany.name,
-    //     email: newCompany.contact.email,
-    //     industry: newCompany.industry,
-    //     logo: newCompany.logo,
-    //     country: newCompany.location.country,
-    //   },
-    //   SECRET_KEY,
-    //   { expiresIn: "1d" }
-    // );
-
-    res.status(201).json({
-      message : 'Company registration submitted for approval',
-      company : {
-        _id : company._id,
-        name : company.name,
-        status : company.status
-      }
-    });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Company Login
-export const loginCompany = async (req, res) => {
+// Get company by ID (public)
+export const getCompanyById = async (req, res) => {
   try {
-    const SECRET_KEY = process.env.SECRET_KEY;
-    const { email, password } = req.body;
+    const company = await Company.findOne({ 
+      _id: req.params.id, 
+      is_deleted: false,
+      status: 'active'
+    })
+    .populate('createdBy', 'firstName lastName')
+    .select('-contact.email -contact.phone -contact.linkedin -contact.twitter'); // Hide sensitive contact info
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
     }
 
-    // Find company by email
-    const company = await Company.findOne({ "contact.email": email, "is_deleted": false }).select("+password");
-    if (!company || !(await company.comparePassword(password))) {
-      return res.status(401).json({ message: "Invalid Credentials" });
-    }
+    res.json(company);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-    // Update last login timestamp
-    company.lastLogin = new Date();
-    await company.save();
+// Get companies by industry (public)
+export const getCompaniesByIndustry = async (req, res) => {
+  try {
+    const { industry } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
-    // Generate token
-    const token = jwt.sign(
-      {
-        _id: company._id,
-        name: company.name,
-        email: company.contact.email,
-        industry: company.industry,
-        logo: company.logo,
-      },
-      SECRET_KEY,
-      { expiresIn: "1d" }
-    );
+    const companies = await Company.find({ 
+      industry: { $regex: industry, $options: 'i' },
+      is_deleted: false,
+      status: 'active'
+    })
+    .populate('createdBy', 'firstName lastName')
+    .select('-contact.email -contact.phone -contact.linkedin -contact.twitter')
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
 
-    res.status(200).json({
-      data: token,
-      company,
-      message: "Company login successful",
+    const total = await Company.countDocuments({ 
+      industry: { $regex: industry, $options: 'i' },
+      is_deleted: false,
+      status: 'active'
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.json({
+      companies,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get company statistics (public)
+export const getCompanyStats = async (req, res) => {
+  try {
+
+    const company = await Company.findOne({ 
+      _id: req.params.id, 
+      is_deleted: false,
+      status: 'active'
+    }).select('name totalJobs totalApplications');
+
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    res.json({
+      name: company.name,
+      totalJobs: company.totalJobs,
+      totalApplications: company.totalApplications
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

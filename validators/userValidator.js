@@ -16,6 +16,7 @@ export const validateSignup = [
   check("email")
     .notEmpty().withMessage("Email is required")
     .isEmail().withMessage("Please enter a valid email")
+    .trim()
     .normalizeEmail(),
 
   check("password")
@@ -24,6 +25,7 @@ export const validateSignup = [
 
   check("role")
     .optional()
+    .trim()
     .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
 ];
 

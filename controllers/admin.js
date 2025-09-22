@@ -3,33 +3,177 @@ import User from '../models/User.js';
 import Job from '../models/Job.js';
 import Application from '../models/Application.js';
 
-// Get all companies with approval status
-export const getAllCompanies = async (req, res) => {
+// ==================== COMPANY MANAGEMENT ====================
+
+// Create a new company
+export const createCompany = async (req, res) => {
   try {
-    const { status, page = 1, limit = 10, search } = req.query;
-    
-    const query = {};
-    if (status) query.status = status;
+    const companyData = {
+      ...req.body,
+      createdBy: req.user._id
+    };
+
+    // If logo is uploaded
+    if (req.file) {
+      companyData.logo = req.file.filename;
+    }
+
+    const company = new Company(companyData);
+    await company.save();
+
+    res.status(201).json({
+      message: 'Company created successfully',
+      company
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
+// Update company
+export const updateCompany = async (req, res) => {
+  try {
+    const updateData = {
+      ...req.body,
+      lastUpdatedBy: req.user._id
+    };
+
+    // If logo is uploaded
+    if (req.file) {
+      updateData.logo = req.file.filename;
+    }
+
+    const company = await Company.findOneAndUpdate(
+      { _id: req.params.id, is_deleted: false },
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    res.json({
+      message: 'Company updated successfully',
+      company
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Delete company (soft delete)
+export const deleteCompany = async (req, res) => {
+  try {
+    const company = await Company.findOneAndUpdate(
+      { _id: req.params.id, is_deleted: false },
+      {
+        is_deleted: true,
+        lastUpdatedBy: req.user._id
+      },
+      { new: true }
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Also deactivate all jobs for this company
+    await Job.updateMany(
+      { company: req.params.id },
+      { isActive: false }
+    );
+
+    res.json({ message: 'Company deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ==================== JOB MANAGEMENT ====================
+
+// Create a new job for a company
+export const createJob = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    // Check if company exists and is active
+    const company = await Company.findOne({
+      _id: companyId,
+      is_deleted: false,
+      status: 'active'
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found or inactive' });
+    }
+
+    const jobData = {
+      ...req.body,
+      company: companyId,
+      createdBy: req.user._id
+    };
+
+    const job = new Job(jobData);
+    await job.save();
+
+    // Update company's total jobs count
+    await Company.findByIdAndUpdate(companyId, {
+      $inc: { totalJobs: 1 }
+    });
+
+    res.status(201).json({
+      message: 'Job created successfully',
+      job
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Get all jobs with pagination and filters
+export const getAllJobs = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      company,
+      jobType,
+      experienceLevel,
+      locationType,
+      isActive = true
+    } = req.query;
+
+    const query = { isActive: isActive === 'true' };
+
+    if (company) query.company = company;
+    if (jobType) query.jobType = jobType;
+    if (experienceLevel) query.experienceLevel = experienceLevel;
+    if (locationType) query['location.type'] = locationType;
+
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { industry: { $regex: search, $options: 'i' } },
-        { 'contact.email': { $regex: search, $options: 'i' } }
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
       ];
     }
 
-    const companies = await Company.find(query)
-      .populate('approvedBy', 'firstName lastName email')
+    const jobs = await Job.find(query)
+      .populate('company', 'name logo industry location')
+      .populate('createdBy', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Company.countDocuments(query);
+    const total = await Job.countDocuments(query);
 
     res.json({
-      companies,
+      jobs,
       totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      currentPage: parseInt(page),
       total
     });
   } catch (error) {
@@ -37,120 +181,209 @@ export const getAllCompanies = async (req, res) => {
   }
 };
 
-// Approve company
-export const approveCompany = async (req, res) => {
+// Get job by ID
+export const getJobById = async (req, res) => {
   try {
-    const { companyId } = req.params;
-    const { maxJobs = 10 } = req.body;
-    const adminId = req.user._id;
+    const job = await Job.findOne({
+      _id: req.params.id,
+      isActive: true
+    })
+      .populate('company', 'name logo industry location contact')
+      .populate('createdBy', 'firstName lastName email');
 
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
     }
 
-    company.status = 'approved';
-    company.approvedBy = adminId;
-    company.approvedAt = new Date();
-    company.canPostJobs = true;
-    company.maxJobs = maxJobs;
+    // Increment view count
+    await job.incrementViewCount();
 
-    await company.save();
+    res.json(job);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-    // TODO: Send approval email to company
-    // await sendCompanyApprovalEmail(company.contact.email, company.name);
+// Update job
+export const updateJob = async (req, res) => {
+  try {
+    const job = await Job.findOneAndUpdate(
+      { _id: req.params.id },
+      req.body,
+      { new: true, runValidators: true }
+    );
 
-    res.json({ 
-      message: 'Company approved successfully',
-      company: company
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    res.json({
+      message: 'Job updated successfully',
+      job
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Delete job (soft delete)
+export const deleteJob = async (req, res) => {
+  try {
+    const job = await Job.findOneAndUpdate(
+      { _id: req.params.id },
+      { isActive: false },
+      { new: true }
+    );
+
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    // Update company's total jobs count
+    await Company.findByIdAndUpdate(job.company, {
+      $inc: { totalJobs: -1 }
+    });
+
+    res.json({ message: 'Job deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get jobs by company
+export const getJobsByCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { page = 1, limit = 10, isActive = true } = req.query;
+
+    const query = {
+      company: companyId,
+      isActive: isActive === 'true'
+    };
+
+    const jobs = await Job.find(query)
+      .populate('createdBy', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Job.countDocuments(query);
+
+    res.json({
+      jobs,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Reject company
-export const rejectCompany = async (req, res) => {
+// ==================== APPLICATION MANAGEMENT ====================
+
+// Get all applications with filters
+export const getAllApplications = async (req, res) => {
   try {
-    const { companyId } = req.params;
-    const { reason } = req.body;
-    const adminId = req.user._id;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      company,
+      job,
+      user
+    } = req.query;
 
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
-    }
+    const query = {};
+    if (status) query.status = status;
+    if (company) query.company = company;
+    if (job) query.job = job;
+    if (user) query.user = user;
 
-    company.status = 'rejected';
-    company.approvedBy = adminId;
-    company.rejectionReason = reason;
+    const applications = await Application.find(query)
+      .populate('user', 'firstName lastName email profilePicture')
+      .populate('job', 'title company')
+      .populate('company', 'name logo')
+      .sort({ applicationDate: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
-    await company.save();
+    const total = await Application.countDocuments(query);
 
-    // TODO: Send rejection email to company
-    // await sendCompanyRejectionEmail(company.contact.email, company.name, reason);
-
-    res.json({ 
-      message: 'Company rejected successfully',
-      company: company
+    res.json({
+      applications,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Suspend company
-export const suspendCompany = async (req, res) => {
+// Update application status
+export const updateApplicationStatus = async (req, res) => {
   try {
-    const { companyId } = req.params;
-    const { reason } = req.body;
+    const { applicationId } = req.params;
+    const { status, notes } = req.body;
 
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+    const application = await Application.findByIdAndUpdate(
+      applicationId,
+      { status, notes },
+      { new: true }
+    )
+      .populate('user', 'firstName lastName email')
+      .populate('job', 'title company')
+      .populate('company', 'name logo');
+
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
     }
 
-    company.status = 'suspended';
-    company.canPostJobs = false;
-    company.rejectionReason = reason;
-
-    await company.save();
-
-    res.json({ 
-      message: 'Company suspended successfully',
-      company: company
+    res.json({
+      message: 'Application status updated successfully',
+      application
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: error.message });
   }
 };
+
+// ==================== DASHBOARD STATS ====================
 
 // Get dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
     const [
       totalCompanies,
-      pendingCompanies,
-      approvedCompanies,
+      activeCompanies,
       totalJobs,
+      activeJobs,
       totalUsers,
-      totalApplications
+      totalApplications,
+      recentApplications
     ] = await Promise.all([
-      Company.countDocuments(),
-      Company.countDocuments({ status: 'pending' }),
-      Company.countDocuments({ status: 'approved' }),
+      Company.countDocuments({ is_deleted: false }),
+      Company.countDocuments({ is_deleted: false, status: 'active' }),
       Job.countDocuments(),
-      User.countDocuments(),
-      Application.countDocuments()
+      Job.countDocuments({ isActive: true }),
+      User.countDocuments({ is_deleted: false }),
+      Application.countDocuments(),
+      Application.countDocuments({
+        applicationDate: {
+          $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        }
+      })
     ]);
 
     res.json({
       totalCompanies,
-      pendingCompanies,
-      approvedCompanies,
+      activeCompanies,
       totalJobs,
+      activeJobs,
       totalUsers,
-      totalApplications
+      totalApplications,
+      recentApplications
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

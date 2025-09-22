@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import bcrypt from "bcrypt";
 
 const companySchema = new mongoose.Schema(
   {
@@ -51,12 +50,6 @@ const companySchema = new mongoose.Schema(
       linkedin: String,
       twitter: String,
     },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: 6,
-      select: false, // hide password by default
-    },
     benefits: [String],
     culture: [String],
     foundedYear: Number,
@@ -65,8 +58,8 @@ const companySchema = new mongoose.Schema(
       default: false,
     },
     // Company capabilities
-    canPostJobs: { type: Boolean, default: false },
-    maxJobs: { type: Number, default: 10 },
+    canPostJobs: { type: Boolean, default: true },
+    maxJobs: { type: Number, default: 50 },
     // Company Stats
     totalJobs: {
       type: Number,
@@ -87,26 +80,19 @@ const companySchema = new mongoose.Schema(
     // Status and permissions
     status: {
       type: String,
-      enum: ['pending', 'approved', 'suspended', 'rejected'],
-      default: 'pending'
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active'
     },
-
     // Admin management
-    approvedBy: {
+    createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      default : null
     },
-    approvedAt: {
-      type : Date,
-      default : null
-    }, 
-    rejectionReason: {
-      type: String, 
-      default : ''
-    },
-    lastLogin: Date,
+    lastUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "User"
+    }
   },
   { timestamps: true }
 );
@@ -114,6 +100,7 @@ const companySchema = new mongoose.Schema(
 companySchema.index({ name: 1 });
 companySchema.index({ industry: 1 });
 companySchema.index({ "location.city": 1, "location.country": 1 });
+companySchema.index({ status: 1 });
 
 companySchema.virtual("fullAddress").get(function () {
   const parts = [
@@ -125,24 +112,6 @@ companySchema.virtual("fullAddress").get(function () {
   ].filter(Boolean);
   return parts.join(", ");
 });
-
-// Hash password before saving
-companySchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Compare password method
-companySchema.methods.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
 
 const Company = mongoose.model("Company", companySchema);
 export default Company;

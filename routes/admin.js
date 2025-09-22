@@ -1,7 +1,10 @@
 import { Router } from 'express';
 
 import { authCheck } from '../middlewares/authCheck.js';
-import { approveCompany, getAllCompanies, getDashboardStats, rejectCompany, suspendCompany } from '../controllers/admin.js';
+import { createCompany, createJob, deleteCompany, deleteJob, getAllJobs, getDashboardStats, getJobById, getJobsByCompany, updateCompany, updateJob} from '../controllers/admin.js';
+import upload from '../middlewares/multer.js';
+import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
+import { validate } from '../middlewares/validate.js';
 
 const admin = Router();
 
@@ -16,13 +19,24 @@ admin.use((req, res, next) => {
   next();
 });
 
-// Dashboard stats
-admin.get('/dashboard/stats', getDashboardStats);
+//Company Management routes
+admin.post('/companies',upload.single('logo'), validateCompanyCreation, validate, createCompany);
+admin.patch('/companies/:id', upload.single('logo'), validateCompanyUpdate, validate, updateCompany);
+admin.delete('/companies/:id', deleteCompany);
 
-// Company management
-admin.get('/companies', getAllCompanies);
-admin.patch('/companies/:companyId/approve', approveCompany);
-admin.patch('/companies/:companyId/reject', rejectCompany);
-admin.patch('/companies/:companyId/suspend', suspendCompany);
+//Job Management routes
+admin.post('/companies/:companyId/jobs', createJob);
+admin.get('/jobs', getAllJobs);
+admin.get('/jobs/:id',getJobById);
+admin.patch('/jobs/:id', updateJob);
+admin.delete('/jobs/:id', deleteJob);
+admin.get('/companies/:companyId/jobs', getJobsByCompany);
+
+//Application management routes
+// admin.get('/applications', getAllApplications);
+// admin.patch('/applications/:applicationId/status', updateApplicationStatus);
+
+//Dashboard routes
+admin.get('/dashboard/stats', getDashboardStats);
 
 export default admin;
