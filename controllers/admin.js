@@ -2,6 +2,7 @@ import Company from '../models/Company.js';
 import User from '../models/User.js';
 
 import Application from '../models/Application.js';
+import Job from '../models/Job.js';
 
 // ==================== COMPANY MANAGEMENT ====================
 
@@ -85,7 +86,11 @@ export const deleteCompany = async (req, res) => {
       { isActive: false }
     );
 
-    res.json({ message: 'Company deleted successfully' });
+    res.status(200).json({
+      success: true,
+      message: "Company deleted successfully"
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -136,7 +141,7 @@ export const createJob = async (req, res) => {
 export const updateJob = async (req, res) => {
   try {
     const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, is_deleted:false},
+      { _id: req.params.id, is_deleted: false },
       req.body,
       { new: true, runValidators: true }
     );
@@ -158,8 +163,8 @@ export const updateJob = async (req, res) => {
 export const deleteJob = async (req, res) => {
   try {
     const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, is_deleted : false },
-      { isActive: false, is_deleted : true },
+      { _id: req.params.id, is_deleted: false },
+      { isActive: false, is_deleted: true },
       { new: true }
     );
 

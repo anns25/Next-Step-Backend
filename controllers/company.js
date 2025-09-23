@@ -3,7 +3,7 @@ import Company from '../models/Company.js';
 // Get all companies (public)
 export const getAllCompanies = async (req, res) => {
   try {
-    const { status, page = 1, limit = 10, search, industry } = req.query;
+    const { status, page = 1, limit = 12, search, industry } = req.query;
     
     const query = { is_deleted: false, status: 'active' }; // Only show active companies publicly
     if (industry) query.industry = industry;
@@ -60,7 +60,7 @@ export const getCompanyById = async (req, res) => {
 export const getCompaniesByIndustry = async (req, res) => {
   try {
     const { industry } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 12 } = req.query;
 
     const companies = await Company.find({ 
       industry: { $regex: industry, $options: 'i' },
