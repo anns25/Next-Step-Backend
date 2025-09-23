@@ -84,7 +84,11 @@ const jobSchema = new mongoose.Schema({
   },
   tags: [String],
   externalUrl: String,
-  applicationInstructions: String
+  applicationInstructions: String,
+  is_deleted: {
+      type: Boolean,
+      default: false
+    }
 }, {
   timestamps: true
 });
