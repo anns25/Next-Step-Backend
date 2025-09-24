@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { authCheck } from '../middlewares/authCheck.js';
-import { createCompany, createJob, deleteCompany, deleteJob, getDashboardStats, updateCompany, updateJob} from '../controllers/admin.js';
+import { createCompany, createJob, deleteCompany, deleteJob, getAllCompaniesByAdmin, getDashboardStats, updateCompany, updateJob} from '../controllers/admin.js';
 import upload from '../middlewares/multer.js';
 import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
 import { validate } from '../middlewares/validate.js';
@@ -20,6 +20,7 @@ admin.use((req, res, next) => {
 });
 
 //Company Management routes
+admin.get('/companies', getAllCompaniesByAdmin);
 admin.post('/companies',upload.single('logo'), validateCompanyCreation, validate, createCompany);
 admin.patch('/companies/:id', upload.single('logo'), validateCompanyUpdate, validate, updateCompany);
 admin.delete('/companies/:id', deleteCompany);

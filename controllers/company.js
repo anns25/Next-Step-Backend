@@ -17,7 +17,6 @@ export const getAllCompanies = async (req, res) => {
 
     const companies = await Company.find(query)
       .populate('createdBy', 'firstName lastName')
-      .select('-contact.email -contact.phone -contact.linkedin -contact.twitter') // Hide sensitive contact info
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

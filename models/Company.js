@@ -16,6 +16,7 @@ const companySchema = new mongoose.Schema(
     website: {
       type: String,
       match: [/^https?:\/\/.+/, "Please enter a valid website URL"],
+      trim : true
     },
     logo: {
       type: String,
@@ -27,11 +28,20 @@ const companySchema = new mongoose.Schema(
       trim: true,
     },
     location: {
-      address: String,
-      city: { type: String, required: [true, "City is required"] },
-      state: String,
-      country: { type: String, required: [true, "Country is required"] },
-      zipCode: String,
+      address: {
+        type :String,
+        trim : true
+      },
+      city: { type: String, required: [true, "City is required"],  trim : true},
+      state: {
+        type :String,
+        trim : true
+      },
+      country: { type: String, required: [true, "Country is required"],  trim : true},
+      zipCode: {
+        type : String,
+        trim : true
+      },
       coordinates: {
         latitude: Number,
         longitude: Number,
@@ -41,18 +51,31 @@ const companySchema = new mongoose.Schema(
       email: {
         type: String,
         required: [true, "Contact email is required"],
+         trim : true,
         match: [
           /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
           "Please enter a valid email",
         ],
       },
-      phone: String,
-      linkedin: String,
-      twitter: String,
+      phone: {
+        type : String,
+        trim : true
+      },
+      linkedin: {
+        type : String,
+        trim : true
+      },
+      twitter: {
+        type : String,
+        trim : true
+      },
     },
     benefits: [String],
     culture: [String],
-    foundedYear: Number,
+    foundedYear: {
+        type : Number,
+        trim : true
+      },
     isRemoteFriendly: {
       type: Boolean,
       default: false,
@@ -81,7 +104,8 @@ const companySchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['active', 'inactive', 'suspended'],
-      default: 'active'
+      default: 'active',
+      trim : true
     },
     // Admin management
     createdBy: {

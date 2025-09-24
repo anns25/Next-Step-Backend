@@ -37,10 +37,12 @@ export const validateCompanyCreation = [
 
   check("contact.linkedin")
     .optional()
+    .trim()
     .isURL().withMessage("Please enter a valid LinkedIn URL"),
 
   check("contact.twitter")
     .optional()
+    .trim()
     .isURL().withMessage("Please enter a valid Twitter URL"),
 
   check("location.city")
@@ -70,11 +72,13 @@ export const validateCompanyCreation = [
 
   check("foundedYear")
     .optional()
+    .trim()
     .isInt({ min: 1800, max: new Date().getFullYear() })
     .withMessage("Please enter a valid founded year"),
 
   check("isRemoteFriendly")
     .optional()
+    .trim()
     .isBoolean().withMessage("isRemoteFriendly must be a boolean"),
 
   check("benefits")
@@ -87,6 +91,7 @@ export const validateCompanyCreation = [
 
   check("status")
     .optional()
+    .trim()
     .isIn(['active', 'inactive', 'suspended'])
     .withMessage("Status must be active, inactive, or suspended")
 ];

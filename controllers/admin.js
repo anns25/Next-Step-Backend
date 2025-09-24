@@ -6,6 +6,39 @@ import Job from '../models/Job.js';
 
 // ==================== COMPANY MANAGEMENT ====================
 
+export const getAllCompaniesByAdmin = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 12, search, industry } = req.query;
+
+    const query = { is_deleted: false };
+    if (industry) query.industry = industry;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { industry: { $regex: search, $options: 'i' } },
+        { 'location.city': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const companies = await Company.find(query)
+      .populate('createdBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Company.countDocuments(query);
+
+    res.json({
+      companies,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Create a new company
 export const createCompany = async (req, res) => {
   try {
