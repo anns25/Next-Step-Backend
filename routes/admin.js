@@ -5,6 +5,7 @@ import { createCompany, createJob, deleteCompany, deleteJob, getAllCompaniesByAd
 import upload from '../middlewares/multer.js';
 import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
 import { validate } from '../middlewares/validate.js';
+import { validateJobCreation, validateJobUpdate } from '../validators/jobValidator.js';
 
 const admin = Router();
 
@@ -26,8 +27,8 @@ admin.patch('/companies/:id', upload.single('logo'), validateCompanyUpdate, vali
 admin.delete('/companies/:id', deleteCompany);
 
 //Job Management routes
-admin.post('/companies/:companyId/jobs', createJob);
-admin.patch('/jobs/:id', updateJob);
+admin.post('/companies/:companyId/jobs', validateJobCreation, validate, createJob);
+admin.patch('/jobs/:id', validateJobUpdate, validate, updateJob);
 admin.delete('/jobs/:id', deleteJob);
 
 //Application management routes

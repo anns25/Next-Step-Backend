@@ -12,10 +12,12 @@ export const getAllCompaniesByAdmin = async (req, res) => {
 
     const query = { is_deleted: false };
     if (industry) query.industry = industry;
+    if (status) query.status = status;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { industry: { $regex: search, $options: 'i' } },
+        { status: { $regex: search, $options: 'i' } },
         { 'location.city': { $regex: search, $options: 'i' } }
       ];
     }
