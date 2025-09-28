@@ -55,7 +55,6 @@ const jobSchema = new mongoose.Schema({
     education: String,
     experience: String,
     certifications: [String],
-    languages: [String]
   },
   responsibilities: [String],
   benefits: [String],
