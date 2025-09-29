@@ -203,6 +203,10 @@ export const deleteJob = async (req, res) => {
       { new: true }
     );
 
+    await Company.findByIdAndUpdate(companyId, {
+      $dec: { totalJobs: 1 }
+    });
+
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -303,8 +307,8 @@ export const getDashboardStats = async (req, res) => {
     ] = await Promise.all([
       Company.countDocuments({ is_deleted: false }),
       Company.countDocuments({ is_deleted: false, status: 'active' }),
-      Job.countDocuments(),
-      Job.countDocuments({ isActive: true }),
+      Job.countDocuments({is_deleted : false}),
+      Job.countDocuments({ is_deleted: false, isActive: true }),
       User.countDocuments({ is_deleted: false }),
       Application.countDocuments(),
       Application.countDocuments({

@@ -89,24 +89,36 @@ export const getCompaniesByIndustry = async (req, res) => {
   }
 };
 
-// Get company statistics (public)
+
+
 export const getCompanyStats = async (req, res) => {
   try {
-
     const company = await Company.findOne({ 
       _id: req.params.id, 
       is_deleted: false,
       status: 'active'
-    }).select('name totalJobs totalApplications');
+    }).select('name');
 
     if (!company) {
       return res.status(404).json({ message: 'Company not found' });
     }
 
+    // Count jobs linked to this company
+    const totalJobs = await Job.countDocuments({
+      companyId: company._id,
+      is_deleted: false,
+      isActive: true
+    });
+
+    // Example: count applications if you have an Application model
+    const totalApplications = await Application.countDocuments({
+      companyId: company._id
+    });
+
     res.json({
       name: company.name,
-      totalJobs: company.totalJobs,
-      totalApplications: company.totalApplications
+      totalJobs,
+      totalApplications
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
