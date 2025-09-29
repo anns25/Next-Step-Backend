@@ -1,11 +1,12 @@
 import { Router } from 'express';
 
 import { authCheck } from '../middlewares/authCheck.js';
-import { createCompany, createJob, deleteCompany, deleteJob, getAllCompaniesByAdmin, getDashboardStats, updateCompany, updateJob} from '../controllers/admin.js';
+import { createCompany, createJob, deleteCompany, deleteJob, deleteUserByAdmin, getAllCompaniesByAdmin, getAllUsersByAdmin, getDashboardStats, getUserByIdByAdmin, updateCompany, updateJob} from '../controllers/admin.js';
 import upload from '../middlewares/multer.js';
 import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
 import { validate } from '../middlewares/validate.js';
 import { validateJobCreation, validateJobUpdate } from '../validators/jobValidator.js';
+import { getUserById } from '../controllers/user.js';
 
 const admin = Router();
 
@@ -30,6 +31,12 @@ admin.delete('/companies/:id', deleteCompany);
 admin.post('/companies/:companyId/jobs', validateJobCreation, validate, createJob);
 admin.patch('/jobs/:id', validateJobUpdate, validate, updateJob);
 admin.delete('/jobs/:id', deleteJob);
+
+//User Management routes
+
+admin.get('/users', getAllUsersByAdmin);
+admin.get('/users/:id', getUserByIdByAdmin);
+admin.delete('/users/:id', deleteUserByAdmin);
 
 //Application management routes
 // admin.get('/applications', getAllApplications);

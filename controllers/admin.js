@@ -4,6 +4,120 @@ import User from '../models/User.js';
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 
+// Add this function at the end of your admin.js file, before the closing
+
+// ==================== USER MANAGEMENT ====================
+
+// Delete user by admin (soft delete)
+export const deleteUserByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent admin from deleting themselves
+    if (req.user._id.toString() === id) {
+      return res.status(400).json({
+        message: 'You cannot delete your own account'
+      });
+    }
+
+    // Find and soft delete the user
+    const user = await User.findOneAndUpdate(
+      { _id: id, is_deleted: false },
+      {
+        is_deleted: true,
+        deletedBy: req.user._id,
+        deletedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found or already deleted' });
+    }
+
+    // Optional: Also soft delete related data
+    // You might want to deactivate user's applications, etc.
+    await Application.updateMany(
+      { user: id },
+      { status: 'withdrawn' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully',
+      deletedUser: {
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get all users by admin (for user management page)
+export const getAllUsersByAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 12,
+      search,
+      role,
+      emailVerified
+    } = req.query;
+
+    const query = { is_deleted: false };
+
+    if (role) query.role = role;
+    if (emailVerified !== undefined) query.emailVerified = emailVerified === 'true';
+
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
+      .select('-password -emailVerificationToken') // Exclude sensitive fields
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await User.countDocuments(query);
+
+    res.json({
+      users,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get user by ID by admin
+export const getUserByIdByAdmin = async (req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.params.id, is_deleted: false })
+      .select('-password -emailVerificationToken');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // ==================== COMPANY MANAGEMENT ====================
 
 export const getAllCompaniesByAdmin = async (req, res) => {
@@ -197,13 +311,14 @@ export const updateJob = async (req, res) => {
 // Delete job (soft delete)
 export const deleteJob = async (req, res) => {
   try {
+
     const job = await Job.findOneAndUpdate(
       { _id: req.params.id, is_deleted: false },
       { isActive: false, is_deleted: true },
       { new: true }
     );
 
-    await Company.findByIdAndUpdate(companyId, {
+    await Company.findByIdAndUpdate(job.company, {
       $dec: { totalJobs: 1 }
     });
 
@@ -307,7 +422,7 @@ export const getDashboardStats = async (req, res) => {
     ] = await Promise.all([
       Company.countDocuments({ is_deleted: false }),
       Company.countDocuments({ is_deleted: false, status: 'active' }),
-      Job.countDocuments({is_deleted : false}),
+      Job.countDocuments({ is_deleted: false }),
       Job.countDocuments({ is_deleted: false, isActive: true }),
       User.countDocuments({ is_deleted: false }),
       Application.countDocuments(),

@@ -6,10 +6,13 @@ import connect from "./mongodb/connect.js";
 import cors from "cors";
 import { fileURLToPath } from 'url';
 import path from 'path'
-import user from "./routes/user.js";
-import admin from "./routes/admin.js"
-import job from "./routes/job.js";
-import company from "./routes/company.js"
+
+import admin from "./Routes/admin.js"
+import job from "./Routes/job.js";
+import company from "./Routes/company.js"
+import user from "./Routes/user.js";
+
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

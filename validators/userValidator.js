@@ -26,7 +26,51 @@ export const validateSignup = [
   check("role")
     .optional()
     .trim()
-    .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
+    .equals("user").withMessage("Role must be user for this endpoint"),
+
+  // Profile picture validation - required for both roles
+  body().custom((value) => {
+    if (!value.role || value.role === 'user') {
+      // Profile picture will be validated in controller (file upload)
+      return true;
+    }
+    return true;
+  })
+];
+
+// Admin-only signup validation
+export const validateAdminSignup = [
+  check("firstName")
+    .notEmpty().withMessage("First name is required")
+    .isString().withMessage("First name must be a string")
+    .trim(),
+
+  check("lastName")
+    .notEmpty().withMessage("Last name is required")
+    .isString().withMessage("Last name must be a string")
+    .trim(),
+
+  check("email")
+    .notEmpty().withMessage("Email is required")
+    .isEmail().withMessage("Please enter a valid email")
+    .trim()
+    .normalizeEmail(),
+
+  check("password")
+    .notEmpty().withMessage("Password is required")
+    .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
+
+  check("role")
+    .equals("admin").withMessage("Role must be admin for this endpoint"),
+
+  // Profile picture validation - required for admin
+  body().custom((value) => {
+    if (value.role === 'admin') {
+      // Profile picture will be validated in controller (file upload)
+      return true;
+    }
+    return true;
+  })
 ];
 
 // Login validation rules
@@ -40,9 +84,7 @@ export const validateLogin = [
     .notEmpty().withMessage("Password is required")
 ];
 
-
-
-// Update user validation rules
+// Update user validation rules (for regular users)
 export const validateUpdateUser = [
   check("firstName")
     .optional()
@@ -62,10 +104,6 @@ export const validateUpdateUser = [
   check("password")
     .optional()
     .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
-
-  check("role")
-    .optional()
-    .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
 
   check("workStatus")
     .optional()
@@ -93,7 +131,7 @@ export const validateUpdateUser = [
     .optional()
     .isISO8601().withMessage("End date must be a valid date"),
 
-  // Add date range validation (around line 148, before the custom validation)
+  // Add date range validation
   check("experience.*.startDate")
     .optional()
     .custom((value) => {
@@ -123,8 +161,6 @@ export const validateUpdateUser = [
       }
       return true;
     }),
-
-
 
   // Education array
   check("education")
@@ -175,8 +211,6 @@ export const validateUpdateUser = [
       }
       return true;
     }),
-
-
 
   // Location object
   check("location.city")
@@ -232,4 +266,35 @@ export const validateUpdateUser = [
   })
 ];
 
+// Update admin validation rules (minimal fields)
+export const validateUpdateAdmin = [
+  check("firstName")
+    .optional()
+    .isString().withMessage("First name must be a string")
+    .trim(),
 
+  check("lastName")
+    .optional()
+    .isString().withMessage("Last name must be a string")
+    .trim(),
+
+  check("email")
+    .optional()
+    .isEmail().withMessage("Please enter a valid email")
+    .normalizeEmail(),
+
+  check("password")
+    .optional()
+    .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long"),
+
+  // Admin should not be able to update user-specific fields
+  body().custom((value) => {
+    const userSpecificFields = ['workStatus', 'skills', 'experience', 'education', 'location', 'preferences'];
+    const hasUserFields = userSpecificFields.some(field => value.hasOwnProperty(field));
+    
+    if (hasUserFields) {
+      throw new Error("Admin accounts cannot have user-specific profile fields");
+    }
+    return true;
+  })
+];

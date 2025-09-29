@@ -1,13 +1,12 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
-// import { sendWelcomeEmail } from "../services/emailService.js";
 
 export const registerUser = async (req, res) => {
   try {
     const SECRET_KEY = process.env.SECRET_KEY;
-    const { firstName, lastName, password, role, email } = req.body;
+    const { firstName, lastName, password, role = 'user', email } = req.body;
 
-    // Check if file was uploaded
+    // Check if file was uploaded (required for both user and admin)
     if (!req.file) {
       return res.status(400).json({ message: "Profile picture is required." });
     }
@@ -32,17 +31,6 @@ export const registerUser = async (req, res) => {
     });
     await newUser.save();
 
-    // Send welcome email (async, don't block response)
-    // sendWelcomeEmail(email, firstName)
-    //   .then(result => {
-    //     if (result.success) {
-    //       console.log("Welcome email sent to:", email);
-    //     } else {
-    //       console.log("Failed to send welcome email:", result.error);
-    //     }
-    //   })
-    //   .catch(err => console.error("Error in welcome email process:", err));
-
     // Generate JWT
     const token = jwt.sign(
       {
@@ -59,7 +47,61 @@ export const registerUser = async (req, res) => {
     res.status(201).json({
       data: token,
       user: newUser,
-      message: "New User created"
+      message: `New ${role} created`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Admin-only registration endpoint
+export const registerAdmin = async (req, res) => {
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY;
+    const { firstName, lastName, password, email, role = "admin" } = req.body;
+
+    // Check if file was uploaded (required for admin)
+    if (!req.file) {
+      return res.status(400).json({ message: "Profile picture is required for admin accounts." });
+    }
+
+    // Get file path from multer
+    const profilePicture = req.file.filename;
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: "Admin with this email already exists" });
+    }
+
+    // Create new admin user
+    const newAdmin = new User({
+      firstName,
+      lastName,
+      email,
+      password,
+      role,
+      profilePicture
+    });
+    await newAdmin.save();
+
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        _id: newAdmin._id,
+        fullName: newAdmin.fullName,
+        role: newAdmin.role,
+        email: newAdmin.email,
+        profilePicture: newAdmin.profilePicture
+      },
+      SECRET_KEY,
+      { expiresIn: "1d" }
+    );
+
+    res.status(201).json({
+      data: token,
+      user: newAdmin,
+      message: "New Admin created"
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -104,7 +146,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-
 // @desc    Get logged-in user profile
 // @route   GET /user/profile
 // @access  Private
@@ -117,7 +158,7 @@ export const getMyProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json(user); // thanks to toJSON in schema, password won’t be included
+    res.status(200).json(user); // thanks to toJSON in schema, password won't be included
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -152,6 +193,11 @@ export const updateMyProfile = async (req, res) => {
       updates.profilePicture = req.file.filename;
     }
 
+    // Prevent role changes through this endpoint
+    if (updates.role) {
+      delete updates.role;
+    }
+
     const updatedUser = await User.findOneAndUpdate(
       { _id: req.user._id, is_deleted: false },
       updates,
@@ -169,7 +215,6 @@ export const updateMyProfile = async (req, res) => {
 };
 
 // @desc Delete User (soft delete themselves)
-
 export const deleteMyAccount = async (req, res) => {
   try {
     const deletedUser = await User.findByIdAndUpdate(
@@ -189,15 +234,11 @@ export const deleteMyAccount = async (req, res) => {
 };
 
 //@desc Admin can delete any user
-
 export const deleteUser = async (req, res) => {
   try {
-
-
     if (req.user.role === "admin") {
       // Admins can delete by ID in route param
       const targetUserId = req.params.id;
-
 
       const deletedUser = await User.findOneAndUpdate(
         { _id: targetUserId, is_deleted: false },
@@ -221,6 +262,3 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-
