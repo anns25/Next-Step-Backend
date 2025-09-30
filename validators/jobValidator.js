@@ -26,9 +26,16 @@ export const validateJobCreation = [
     .isString().withMessage("Address must be a string")
     .trim(),
 
+  // In jobValidator.js, update the city and country validation:
   check("location.city")
     .optional()
     .isString().withMessage("City must be a string")
+    .custom((value, { req }) => {
+      if (req.body.location && req.body.location.type !== 'remote' && !value) {
+        throw new Error("City is required for non-remote positions");
+      }
+      return true;
+    })
     .trim(),
 
   check("location.state")
@@ -39,6 +46,12 @@ export const validateJobCreation = [
   check("location.country")
     .optional()
     .isString().withMessage("Country must be a string")
+    .custom((value, { req }) => {
+      if (req.body.location && req.body.location.type !== 'remote' && !value) {
+        throw new Error("Country is required for non-remote positions");
+      }
+      return true;
+    })
     .trim(),
 
   check("location.zipCode")

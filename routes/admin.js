@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { authCheck } from '../middlewares/authCheck.js';
-import { createCompany, createJob, deleteCompany, deleteJob, deleteUserByAdmin, getAllCompaniesByAdmin, getAllUsersByAdmin, getDashboardStats, getUserByIdByAdmin, updateCompany, updateJob} from '../controllers/admin.js';
+import { createCompany, createJob, deleteCompany, deleteJob, deleteUserByAdmin, getAllCompaniesByAdmin, getAllJobsByAdmin, getAllUsersByAdmin, getDashboardStats, getUserByIdByAdmin, updateCompany, updateJob} from '../controllers/admin.js';
 import upload from '../middlewares/multer.js';
 import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
 import { validate } from '../middlewares/validate.js';
@@ -28,6 +28,7 @@ admin.patch('/companies/:id', upload.single('logo'), validateCompanyUpdate, vali
 admin.delete('/companies/:id', deleteCompany);
 
 //Job Management routes
+admin.get('/jobs', getAllJobsByAdmin);
 admin.post('/companies/:companyId/jobs', validateJobCreation, validate, createJob);
 admin.patch('/jobs/:id', validateJobUpdate, validate, updateJob);
 admin.delete('/jobs/:id', deleteJob);

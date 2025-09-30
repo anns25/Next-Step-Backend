@@ -17,6 +17,7 @@ const jobSchema = new mongoose.Schema({
     ref: 'Company',
     required: [true, 'Company is required']
   },
+  // In your Job.js model, update the location schema:
   location: {
     type: {
       type: String,
@@ -24,9 +25,19 @@ const jobSchema = new mongoose.Schema({
       required: [true, 'Location type is required']
     },
     address: String,
-    city: String,
+    city: {
+      type: String,
+      required: function () {
+        return this.location && this.location.type !== 'remote';
+      }
+    },
     state: String,
-    country: String,
+    country: {
+      type: String,
+      required: function () {
+        return this.location && this.location.type !== 'remote';
+      }
+    },
     zipCode: String,
     coordinates: {
       latitude: Number,
@@ -85,9 +96,9 @@ const jobSchema = new mongoose.Schema({
   externalUrl: String,
   applicationInstructions: String,
   is_deleted: {
-      type: Boolean,
-      default: false
-    }
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });
@@ -103,30 +114,41 @@ jobSchema.index({ createdAt: -1 });
 jobSchema.index({ tags: 1 });
 
 // Virtual for full location
-jobSchema.virtual('fullLocation').get(function() {
+jobSchema.virtual('fullLocation').get(function () {
   if (this.location.type === 'remote') {
     return 'Remote';
   }
-  
+
   const parts = [
     this.location.city,
     this.location.state,
     this.location.country
   ].filter(Boolean);
-  
+
   return parts.join(', ');
 });
 
+
+jobSchema.pre('save', function (next) {
+  if (this.location && this.location.type !== 'remote') {
+    if (!this.location.city || !this.location.country) {
+      return next(new Error('City and country are required for non-remote positions'));
+    }
+  }
+  next();
+});
+
 // Update application count
-jobSchema.methods.incrementApplicationCount = function() {
+jobSchema.methods.incrementApplicationCount = function () {
   this.applicationCount += 1;
   return this.save();
 };
 
 // Update view count
-jobSchema.methods.incrementViewCount = function() {
+jobSchema.methods.incrementViewCount = function () {
   this.viewCount += 1;
   return this.save();
 };
+
 
 export default mongoose.model('Job', jobSchema);

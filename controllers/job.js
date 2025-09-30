@@ -11,6 +11,8 @@ export const getAllJobs = async (req, res) => {
             jobType,
             experienceLevel,
             locationType,
+            city,
+            country,
             isActive = true
         } = req.query;
 
@@ -29,6 +31,14 @@ export const getAllJobs = async (req, res) => {
         if (jobType) matchStage.$match.jobType = jobType;
         if (experienceLevel) matchStage.$match.experienceLevel = experienceLevel;
         if (locationType) matchStage.$match['location.type'] = locationType;
+
+        // Add city and country filters (only for non-remote jobs)
+        if (city && locationType && locationType !== 'remote') {
+            matchStage.$match['location.city'] = { $regex: city, $options: 'i' };
+        }
+        if (country && locationType && locationType !== 'remote') {
+            matchStage.$match['location.country'] = { $regex: country, $options: 'i' };
+        }
 
         pipeline.push(matchStage);
 
