@@ -2,70 +2,35 @@ import { check, body } from "express-validator";
 
 // Application creation validation
 export const validateApplicationCreation = [
+  // Accept both jobId and job field names
   check("jobId")
-    .notEmpty().withMessage("Job ID is required")
+    .optional()
     .isMongoId().withMessage("Job ID must be a valid ObjectId"),
+  
+  check("job")
+    .optional()
+    .isMongoId().withMessage("Job ID must be a valid ObjectId"),
+
+  // Ensure at least one job field is provided
+  body().custom((value, { req }) => {
+    if (!req.body.jobId && !req.body.job) {
+      throw new Error('Either jobId or job is required');
+    }
+    return true;
+  }),
 
   check("coverLetter")
     .optional()
     .isString().withMessage("Cover letter must be a string")
     .isLength({ max: 2000 }).withMessage("Cover letter cannot exceed 2000 characters"),
 
-  check("resume")
-    .notEmpty().withMessage("Resume is required")
-    .isString().withMessage("Resume must be a string"),
-
-  check("portfolio")
-    .optional()
-    .isURL().withMessage("Portfolio must be a valid URL"),
-
-  check("linkedinProfile")
-    .optional()
-    .isURL().withMessage("LinkedIn profile must be a valid URL"),
-
-  check("expectedSalary.amount")
-    .optional()
-    .isNumeric().withMessage("Expected salary amount must be a number")
-    .isFloat({ min: 0 }).withMessage("Expected salary must be positive"),
-
-  check("expectedSalary.currency")
-    .optional()
-    .isString().withMessage("Currency must be a string")
-    .isLength({ min: 3, max: 3 }).withMessage("Currency must be a 3-letter code"),
-
-  check("expectedSalary.period")
-    .optional()
-    .isIn(['hourly', 'monthly', 'yearly'])
-    .withMessage("Salary period must be hourly, monthly, or yearly"),
-
-  check("availability")
-    .optional()
-    .isISO8601().withMessage("Availability must be a valid date"),
-
   check("notes")
     .optional()
     .isString().withMessage("Notes must be a string")
-    .isLength({ max: 500 }).withMessage("Notes cannot exceed 500 characters"),
-
-  check("source")
-    .optional()
-    .isIn(['website', 'linkedin', 'indeed', 'glassdoor', 'referral', 'other'])
-    .withMessage("Source must be one of: website, linkedin, indeed, glassdoor, referral, other"),
-
-  check("referralContact.name")
-    .optional()
-    .isString().withMessage("Referral contact name must be a string"),
-
-  check("referralContact.email")
-    .optional()
-    .isEmail().withMessage("Referral contact email must be a valid email"),
-
-  check("referralContact.relationship")
-    .optional()
-    .isString().withMessage("Referral contact relationship must be a string")
+    .isLength({ max: 500 }).withMessage("Notes cannot exceed 500 characters")
 ];
 
-// Application update validation
+// Application update validation (for users - only status and notes)
 export const validateApplicationUpdate = [
   check("status")
     .optional()
@@ -75,26 +40,20 @@ export const validateApplicationUpdate = [
   check("notes")
     .optional()
     .isString().withMessage("Notes must be a string")
-    .isLength({ max: 500 }).withMessage("Notes cannot exceed 500 characters"),
+    .isLength({ max: 500 }).withMessage("Notes cannot exceed 500 characters")
+];
 
-  check("feedback")
+// Application status update validation (for companies)
+export const validateApplicationStatusUpdate = [
+  check("status")
     .optional()
-    .isString().withMessage("Feedback must be a string")
-    .isLength({ max: 1000 }).withMessage("Feedback cannot exceed 1000 characters"),
+    .isIn(['applied', 'under-review', 'shortlisted', 'interview-scheduled', 'interviewed', 'rejected', 'accepted', 'withdrawn'])
+    .withMessage("Invalid status"),
 
-  check("interviewDate")
+  check("notes")
     .optional()
-    .isISO8601().withMessage("Interview date must be a valid date"),
-
-  check("interviewType")
-    .optional()
-    .isIn(['phone', 'video', 'in-person', 'technical', 'panel'])
-    .withMessage("Interview type must be one of: phone, video, in-person, technical, panel"),
-
-  check("rejectionReason")
-    .optional()
-    .isString().withMessage("Rejection reason must be a string")
-    .isLength({ max: 500 }).withMessage("Rejection reason cannot exceed 500 characters")
+    .isString().withMessage("Notes must be a string")
+    .isLength({ max: 500 }).withMessage("Notes cannot exceed 500 characters")
 ];
 
 // Application ID validation

@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import express, { application } from "express";
+import express from "express";
 import connect from "./mongodb/connect.js";
 import cors from "cors";
 import { fileURLToPath } from 'url';
@@ -11,7 +11,7 @@ import admin from "./routes/admin.js"
 import job from "./routes/job.js";
 import company from "./routes/company.js"
 import user from "./routes/user.js";
-
+import application from "./routes/application.js";
 
 
 const __filename = fileURLToPath(import.meta.url);

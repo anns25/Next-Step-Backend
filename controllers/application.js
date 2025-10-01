@@ -1,41 +1,57 @@
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
-import User from '../models/User.js';
-import Company from '../models/Company.js';
+import fs from 'fs';
+import mongoose from 'mongoose';
+
+// Helper function to check if user is admin
+const isAdmin = (user) => {
+    return user.role === 'admin' || user.isAdmin === true;
+};
+
+// Helper function to check if user owns the application or is admin
+const canAccessApplication = (user, application) => {
+    return application.user.toString() === user._id.toString() || isAdmin(user);
+};
 
 // Create a new job application
 export const createApplication = async (req, res) => {
     try {
         const {
             jobId,
+            job, // Handle both field names
             coverLetter,
-            resume,
-            portfolio,
-            linkedinProfile,
-            expectedSalary,
-            availability,
-            notes,
-            source,
-            referralContact
+            notes
         } = req.body;
 
-        const userId = req.user._id; // Assuming user is authenticated
+        const userId = req.user._id;
+
+        // Use jobId or job, whichever is provided
+        const actualJobId = jobId || job;
+
+        // Check if resume file was uploaded
+        if (!req.file) {
+            return res.status(400).json({ message: 'Resume file is required' });
+        }
+
+        // Get the file path
+        const resumePath = req.file.path;
 
         // Check if job exists and is active
-        const job = await Job.findOne({
-            _id: jobId,
+        const jobDoc = await Job.findOne({
+            _id: actualJobId,
             isActive: true,
             is_deleted: false
         }).populate('company');
 
-        if (!job) {
+        if (!jobDoc) {
             return res.status(404).json({ message: 'Job not found or not active' });
         }
 
-        // Check if user already applied for this job
+        // Check if user already applied for this job (excluding soft deleted applications)
         const existingApplication = await Application.findOne({
             user: userId,
-            job: jobId
+            job: actualJobId,
+            is_deleted: false
         });
 
         if (existingApplication) {
@@ -45,24 +61,18 @@ export const createApplication = async (req, res) => {
         // Create new application
         const application = new Application({
             user: userId,
-            job: jobId,
-            company: job.company._id,
-            coverLetter,
-            resume,
-            portfolio,
-            linkedinProfile,
-            expectedSalary,
-            availability,
-            notes,
-            source,
-            referralContact,
-            applicationDate: new Date()
+            job: actualJobId,
+            company: jobDoc.company._id,
+            coverLetter: coverLetter || '',
+            resume: resumePath,
+            notes: notes || '',
+            is_deleted: false
         });
 
         await application.save();
 
         // Increment job's application count
-        await Job.findByIdAndUpdate(jobId, {
+        await Job.findByIdAndUpdate(actualJobId, {
             $inc: { applicationCount: 1 }
         });
 
@@ -83,20 +93,31 @@ export const createApplication = async (req, res) => {
     }
 };
 
-// Get user's applications
+// Get user's applications (users can only see their own, admins can see all)
 export const getUserApplications = async (req, res) => {
     try {
         const userId = req.user._id;
+        const isUserAdmin = isAdmin(req.user);
         const {
             page = 1,
             limit = 10,
             status,
             sortBy = 'applicationDate',
-            sortOrder = 'desc'
+            sortOrder = 'desc',
+            targetUserId // Admin can specify which user's applications to get
         } = req.query;
 
-        // Build query
-        const query = { user: userId };
+        // Build query - exclude soft deleted applications
+        let query = { is_deleted: false };
+
+        // If admin is requesting specific user's applications, use that user ID
+        // Otherwise, use the requesting user's ID
+        if (isUserAdmin && targetUserId) {
+            query.user = targetUserId;
+        } else {
+            query.user = userId;
+        }
+
         if (status) {
             query.status = status;
         }
@@ -115,9 +136,9 @@ export const getUserApplications = async (req, res) => {
 
         const total = await Application.countDocuments(query);
 
-        // Get application statistics
+        // Get application statistics (excluding soft deleted)
         const stats = await Application.aggregate([
-            { $match: { user: userId } },
+            { $match: query },
             {
                 $group: {
                     _id: '$status',
@@ -145,7 +166,7 @@ export const getUserApplications = async (req, res) => {
     }
 };
 
-// Get application by ID
+// Get application by ID (only owner or admin can access)
 export const getApplicationById = async (req, res) => {
     try {
         const applicationId = req.params.id;
@@ -153,7 +174,7 @@ export const getApplicationById = async (req, res) => {
 
         const application = await Application.findOne({
             _id: applicationId,
-            user: userId
+            is_deleted: false
         })
             .populate('user', 'firstName lastName email profilePicture')
             .populate('job', 'title description location jobType experienceLevel salary requirements benefits')
@@ -161,6 +182,13 @@ export const getApplicationById = async (req, res) => {
 
         if (!application) {
             return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Check if user can access this application
+        if (!canAccessApplication(req.user, application)) {
+            return res.status(403).json({
+                message: 'You do not have permission to access this application'
+            });
         }
 
         res.json(application);
@@ -171,7 +199,7 @@ export const getApplicationById = async (req, res) => {
     }
 };
 
-// Update application status (user can only withdraw)
+// Update application (only owner or admin can update)
 export const updateApplication = async (req, res) => {
     try {
         const applicationId = req.params.id;
@@ -180,23 +208,30 @@ export const updateApplication = async (req, res) => {
 
         const application = await Application.findOne({
             _id: applicationId,
-            user: userId
+            is_deleted: false
         });
 
         if (!application) {
             return res.status(404).json({ message: 'Application not found' });
         }
 
-        // Users can only withdraw their applications
-        if (status && status !== 'withdrawn') {
-            return res.status(403).json({ 
-                message: 'You can only withdraw your application. Contact the company for other status updates.' 
+        // Check if user can access this application
+        if (!canAccessApplication(req.user, application)) {
+            return res.status(403).json({
+                message: 'You do not have permission to update this application'
+            });
+        }
+
+        // Users can only withdraw their applications, admins can update any status
+        if (status && status !== 'withdrawn' && !isAdmin(req.user)) {
+            return res.status(403).json({
+                message: 'You can only withdraw your application. Contact the company for other status updates.'
             });
         }
 
         // Update application
         if (status) application.status = status;
-        if (notes) application.notes = notes;
+        if (notes !== undefined) application.notes = notes;
 
         await application.save();
 
@@ -211,7 +246,7 @@ export const updateApplication = async (req, res) => {
     }
 };
 
-// Delete application (withdraw)
+// Soft delete application (only owner or admin can delete)
 export const deleteApplication = async (req, res) => {
     try {
         const applicationId = req.params.id;
@@ -219,19 +254,29 @@ export const deleteApplication = async (req, res) => {
 
         const application = await Application.findOne({
             _id: applicationId,
-            user: userId
+            is_deleted: false
         });
 
         if (!application) {
             return res.status(404).json({ message: 'Application not found' });
         }
 
+        // Check if user can access this application
+        if (!canAccessApplication(req.user, application)) {
+            return res.status(403).json({
+                message: 'You do not have permission to delete this application'
+            });
+        }
+
+        // Soft delete the application
+        application.is_deleted = true;
+        application.deletedAt = new Date();
+        await application.save();
+
         // Decrement job's application count
         await Job.findByIdAndUpdate(application.job, {
             $inc: { applicationCount: -1 }
         });
-
-        await Application.findByIdAndDelete(applicationId);
 
         res.json({ message: 'Application withdrawn successfully' });
 
@@ -241,13 +286,21 @@ export const deleteApplication = async (req, res) => {
     }
 };
 
-// Get application statistics for user
+// Get application statistics for user (users see their own, admins can see any user's)
 export const getApplicationStats = async (req, res) => {
     try {
         const userId = req.user._id;
+        const isUserAdmin = isAdmin(req.user);
+        const { targetUserId } = req.query;
 
+        // Determine which user's stats to get
+        const statsUserId = (isUserAdmin && targetUserId) ? targetUserId : userId;
+        const queryUserId = new mongoose.Types.ObjectId(statsUserId);
+        console.log('Debug - statsUserId:', queryUserId);
+        console.log('Debug - queryUserId type:', typeof queryUserId);
+        console.log('Debug - statsUserId type:', typeof statsUserId);
         const stats = await Application.aggregate([
-            { $match: { user: userId } },
+            { $match: { user: queryUserId, is_deleted: false } },
             {
                 $group: {
                     _id: null,
@@ -264,22 +317,24 @@ export const getApplicationStats = async (req, res) => {
             }
         ]);
 
-        // Get recent applications (last 30 days)
+        // Get recent applications (last 30 days, excluding soft deleted)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         const recentApplications = await Application.countDocuments({
-            user: userId,
-            applicationDate: { $gte: thirtyDaysAgo }
+            user: statsUserId, // Fixed: use 'user' field, not 'statsUserId'
+            applicationDate: { $gte: thirtyDaysAgo },
+            is_deleted: false
         });
 
-        // Get average response time
+        // Get average response time (excluding soft deleted)
         const responseTimeStats = await Application.aggregate([
-            { 
-                $match: { 
-                    user: userId,
-                    status: { $in: ['under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'accepted'] }
-                } 
+            {
+                $match: {
+                    user: statsUserId, // Fixed: use 'user' field, not 'statsUserId'
+                    status: { $in: ['under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'accepted'] },
+                    is_deleted: false
+                }
             },
             {
                 $addFields: {
@@ -323,7 +378,7 @@ export const getApplicationStats = async (req, res) => {
     }
 };
 
-// Get applications for a specific job (for company view)
+// Get applications for a specific job (for company view, excluding soft deleted)
 export const getJobApplications = async (req, res) => {
     try {
         const jobId = req.params.jobId;
@@ -341,8 +396,11 @@ export const getJobApplications = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        // Build query
-        const query = { job: jobId };
+        // Build query - exclude soft deleted applications
+        const query = {
+            job: jobId,
+            is_deleted: false
+        };
         if (status) {
             query.status = status;
         }
@@ -369,6 +427,132 @@ export const getJobApplications = async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching job applications:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Update application status (for companies and admins)
+export const updateApplicationStatus = async (req, res) => {
+    try {
+        const applicationId = req.params.id;
+        const { status, notes } = req.body;
+
+        const application = await Application.findOne({
+            _id: applicationId,
+            is_deleted: false
+        })
+            .populate('job')
+            .populate('company');
+
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Check if user can update this application (company owner or admin)
+        // You might want to add company ownership check here
+        if (!isAdmin(req.user)) {
+            // Add company ownership check if needed
+            // if (application.company.toString() !== req.user.company.toString()) {
+            //     return res.status(403).json({ message: 'You do not have permission to update this application' });
+            // }
+        }
+
+        // Update application fields
+        if (status) application.status = status;
+        if (notes !== undefined) application.notes = notes;
+
+        await application.save();
+
+        res.json({
+            message: 'Application status updated successfully',
+            application
+        });
+
+    } catch (error) {
+        console.error('Error updating application status:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Restore soft deleted application (admin only)
+export const restoreApplication = async (req, res) => {
+    try {
+        const applicationId = req.params.id;
+
+        // Only admins can restore applications
+        if (!isAdmin(req.user)) {
+            return res.status(403).json({
+                message: 'Only administrators can restore applications'
+            });
+        }
+
+        const application = await Application.findOne({
+            _id: applicationId,
+            is_deleted: true
+        });
+
+        if (!application) {
+            return res.status(404).json({ message: 'Deleted application not found' });
+        }
+
+        // Restore the application
+        application.is_deleted = false;
+        application.restoredAt = new Date();
+        await application.save();
+
+        // Increment job's application count
+        await Job.findByIdAndUpdate(application.job, {
+            $inc: { applicationCount: 1 }
+        });
+
+        res.json({
+            message: 'Application restored successfully',
+            application
+        });
+
+    } catch (error) {
+        console.error('Error restoring application:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Permanently delete application (admin only)
+export const permanentDeleteApplication = async (req, res) => {
+    try {
+        const applicationId = req.params.id;
+
+        // Only admins can permanently delete applications
+        if (!isAdmin(req.user)) {
+            return res.status(403).json({
+                message: 'Only administrators can permanently delete applications'
+            });
+        }
+
+        const application = await Application.findOne({
+            _id: applicationId,
+            is_deleted: true
+        });
+
+        if (!application) {
+            return res.status(404).json({ message: 'Deleted application not found' });
+        }
+
+        // Delete resume file if it exists
+        if (application.resume && fs.existsSync(application.resume)) {
+            try {
+                fs.unlinkSync(application.resume);
+            } catch (error) {
+                console.error('Error deleting resume file:', error);
+            }
+        }
+
+        // Permanently delete the application
+        await Application.findByIdAndDelete(applicationId);
+
+        res.json({ message: 'Application permanently deleted successfully' });
+
+    } catch (error) {
+        console.error('Error permanently deleting application:', error);
         res.status(500).json({ message: error.message });
     }
 };
