@@ -107,13 +107,16 @@ export const getUserApplications = async (req, res) => {
             targetUserId // Admin can specify which user's applications to get
         } = req.query;
 
+        // If admin is requesting specific user's applications, fetch all the applications
+        // Otherwise, use the requesting user's ID
         // Build query - exclude soft deleted applications
         let query = { is_deleted: false };
 
-        // If admin is requesting specific user's applications, use that user ID
-        // Otherwise, use the requesting user's ID
-        if (isUserAdmin && targetUserId) {
-            query.user = targetUserId;
+        // Admin can see all applications if no specific user is targeted
+        if (isUserAdmin) {
+            if (targetUserId) {
+                query.user = targetUserId;
+            }
         } else {
             query.user = userId;
         }
@@ -128,6 +131,7 @@ export const getUserApplications = async (req, res) => {
 
         // Execute query with pagination
         const applications = await Application.find(query)
+            .populate('user', 'firstName lastName email profilePicture')
             .populate('job', 'title description location jobType experienceLevel salary applicationDeadline')
             .populate('company', 'name logo industry location contact')
             .sort(sort)
@@ -204,7 +208,7 @@ export const updateApplication = async (req, res) => {
     try {
         const applicationId = req.params.id;
         const userId = req.user._id;
-        const { status, notes } = req.body;
+        const { status, notes, coverLetter } = req.body;
 
         const application = await Application.findOne({
             _id: applicationId,
@@ -232,6 +236,7 @@ export const updateApplication = async (req, res) => {
         // Update application
         if (status) application.status = status;
         if (notes !== undefined) application.notes = notes;
+        if (coverLetter !== undefined) application.coverLetter = coverLetter;
 
         await application.save();
 
@@ -293,66 +298,123 @@ export const getApplicationStats = async (req, res) => {
         const isUserAdmin = isAdmin(req.user);
         const { targetUserId } = req.query;
 
-        // Determine which user's stats to get
-        const statsUserId = (isUserAdmin && targetUserId) ? targetUserId : userId;
-        const queryUserId = new mongoose.Types.ObjectId(statsUserId);
-        console.log('Debug - statsUserId:', queryUserId);
-        console.log('Debug - queryUserId type:', typeof queryUserId);
-        console.log('Debug - statsUserId type:', typeof statsUserId);
-        const stats = await Application.aggregate([
-            { $match: { user: queryUserId, is_deleted: false } },
-            {
-                $group: {
-                    _id: null,
-                    totalApplications: { $sum: 1 },
-                    applied: { $sum: { $cond: [{ $eq: ['$status', 'applied'] }, 1, 0] } },
-                    underReview: { $sum: { $cond: [{ $eq: ['$status', 'under-review'] }, 1, 0] } },
-                    shortlisted: { $sum: { $cond: [{ $eq: ['$status', 'shortlisted'] }, 1, 0] } },
-                    interviewScheduled: { $sum: { $cond: [{ $eq: ['$status', 'interview-scheduled'] }, 1, 0] } },
-                    interviewed: { $sum: { $cond: [{ $eq: ['$status', 'interviewed'] }, 1, 0] } },
-                    rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
-                    accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
-                    withdrawn: { $sum: { $cond: [{ $eq: ['$status', 'withdrawn'] }, 1, 0] } }
-                }
-            }
-        ]);
+        let stats, recentApplications, responseTimeStats;
 
-        // Get recent applications (last 30 days, excluding soft deleted)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const recentApplications = await Application.countDocuments({
-            user: statsUserId, // Fixed: use 'user' field, not 'statsUserId'
-            applicationDate: { $gte: thirtyDaysAgo },
-            is_deleted: false
-        });
-
-        // Get average response time (excluding soft deleted)
-        const responseTimeStats = await Application.aggregate([
-            {
-                $match: {
-                    user: statsUserId, // Fixed: use 'user' field, not 'statsUserId'
-                    status: { $in: ['under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'accepted'] },
-                    is_deleted: false
-                }
-            },
-            {
-                $addFields: {
-                    responseTime: {
-                        $divide: [
-                            { $subtract: ['$updatedAt', '$applicationDate'] },
-                            1000 * 60 * 60 * 24 // Convert to days
-                        ]
+        if (isUserAdmin && !targetUserId) {
+            // Admin requesting overall stats for all users
+            stats = await Application.aggregate([
+                { $match: { is_deleted: false } },
+                {
+                    $group: {
+                        _id: null,
+                        totalApplications: { $sum: 1 },
+                        applied: { $sum: { $cond: [{ $eq: ['$status', 'applied'] }, 1, 0] } },
+                        underReview: { $sum: { $cond: [{ $eq: ['$status', 'under-review'] }, 1, 0] } },
+                        shortlisted: { $sum: { $cond: [{ $eq: ['$status', 'shortlisted'] }, 1, 0] } },
+                        interviewScheduled: { $sum: { $cond: [{ $eq: ['$status', 'interview-scheduled'] }, 1, 0] } },
+                        interviewed: { $sum: { $cond: [{ $eq: ['$status', 'interviewed'] }, 1, 0] } },
+                        rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+                        accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+                        withdrawn: { $sum: { $cond: [{ $eq: ['$status', 'withdrawn'] }, 1, 0] } }
                     }
                 }
-            },
-            {
-                $group: {
-                    _id: null,
-                    avgResponseTime: { $avg: '$responseTime' }
+            ]);
+
+            // Get recent applications for all users (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            recentApplications = await Application.countDocuments({
+                applicationDate: { $gte: thirtyDaysAgo },
+                is_deleted: false
+            });
+
+            // Get average response time for all users
+            responseTimeStats = await Application.aggregate([
+                {
+                    $match: {
+                        status: { $in: ['under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'accepted'] },
+                        is_deleted: false
+                    }
+                },
+                {
+                    $addFields: {
+                        responseTime: {
+                            $divide: [
+                                { $subtract: ['$updatedAt', '$applicationDate'] },
+                                1000 * 60 * 60 * 24 // Convert to days
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        avgResponseTime: { $avg: '$responseTime' }
+                    }
                 }
-            }
-        ]);
+            ]);
+
+        } else {
+            // Regular user or admin requesting specific user's stats
+            const statsUserId = (isUserAdmin && targetUserId) ? targetUserId : userId;
+            const queryUserId = new mongoose.Types.ObjectId(statsUserId);
+
+            stats = await Application.aggregate([
+                { $match: { user: queryUserId, is_deleted: false } },
+                {
+                    $group: {
+                        _id: null,
+                        totalApplications: { $sum: 1 },
+                        applied: { $sum: { $cond: [{ $eq: ['$status', 'applied'] }, 1, 0] } },
+                        underReview: { $sum: { $cond: [{ $eq: ['$status', 'under-review'] }, 1, 0] } },
+                        shortlisted: { $sum: { $cond: [{ $eq: ['$status', 'shortlisted'] }, 1, 0] } },
+                        interviewScheduled: { $sum: { $cond: [{ $eq: ['$status', 'interview-scheduled'] }, 1, 0] } },
+                        interviewed: { $sum: { $cond: [{ $eq: ['$status', 'interviewed'] }, 1, 0] } },
+                        rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+                        accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+                        withdrawn: { $sum: { $cond: [{ $eq: ['$status', 'withdrawn'] }, 1, 0] } }
+                    }
+                }
+            ]);
+
+            // Get recent applications for specific user (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            recentApplications = await Application.countDocuments({
+                user: statsUserId,
+                applicationDate: { $gte: thirtyDaysAgo },
+                is_deleted: false
+            });
+
+            // Get average response time for specific user
+            responseTimeStats = await Application.aggregate([
+                {
+                    $match: {
+                        user: statsUserId,
+                        status: { $in: ['under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'accepted'] },
+                        is_deleted: false
+                    }
+                },
+                {
+                    $addFields: {
+                        responseTime: {
+                            $divide: [
+                                { $subtract: ['$updatedAt', '$applicationDate'] },
+                                1000 * 60 * 60 * 24 // Convert to days
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        avgResponseTime: { $avg: '$responseTime' }
+                    }
+                }
+            ]);
+        }
 
         const result = {
             ...(stats[0] || {

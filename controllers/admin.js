@@ -70,7 +70,7 @@ export const getAllUsersByAdmin = async (req, res) => {
       emailVerified
     } = req.query;
 
-    const query = { is_deleted: false };
+    const query = { is_deleted: false, role: { $ne: 'admin' }};
 
     if (role) query.role = role;
     if (emailVerified !== undefined) query.emailVerified = emailVerified === 'true';
@@ -516,6 +516,8 @@ export const updateApplicationStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
     const { status, notes } = req.body;
+
+    console.log("id", applicationId);
 
     const application = await Application.findByIdAndUpdate(
       applicationId,

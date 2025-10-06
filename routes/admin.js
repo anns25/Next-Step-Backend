@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { authCheck } from '../middlewares/authCheck.js';
-import { createCompany, createJob, deleteCompany, deleteJob, deleteUserByAdmin, getAllCompaniesByAdmin, getAllJobsByAdmin, getAllUsersByAdmin, getDashboardStats, getUserByIdByAdmin, updateCompany, updateJob} from '../controllers/admin.js';
+import { createCompany, createJob, deleteCompany, deleteJob, deleteUserByAdmin, getAllCompaniesByAdmin, getAllJobsByAdmin, getAllUsersByAdmin, getDashboardStats, getUserByIdByAdmin, updateApplicationStatus, updateCompany, updateJob} from '../controllers/admin.js';
 import upload, { uploadImage } from '../middlewares/multer.js';
 import { validateCompanyCreation, validateCompanyUpdate } from '../validators/companyValidator.js';
 import { validate } from '../middlewares/validate.js';
@@ -41,7 +41,7 @@ admin.delete('/users/:id', deleteUserByAdmin);
 
 //Application management routes
 // admin.get('/applications', getAllApplications);
-// admin.patch('/applications/:applicationId/status', updateApplicationStatus);
+admin.patch('/applications/:applicationId/status', updateApplicationStatus);
 
 //Dashboard routes
 admin.get('/dashboard/stats', getDashboardStats);

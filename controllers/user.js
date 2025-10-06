@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import User, { AdminUser, RegularUser } from "../models/User.js";
 import jwt from "jsonwebtoken";
 
 export const registerUser = async (req, res) => {
@@ -186,23 +186,41 @@ export const getUserById = async (req, res) => {
 // @access  Private
 export const updateMyProfile = async (req, res) => {
   try {
-    const { ...updates } = req.body;
+    const updates = { ...req.body };
 
-    // If profile picture is uploaded
+    // If profile picture uploaded
     if (req.file) {
       updates.profilePicture = req.file.filename;
     }
 
-    // Prevent role changes through this endpoint
+    // Prevent role change via update
     if (updates.role) {
       delete updates.role;
     }
 
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: req.user._id, is_deleted: false },
-      updates,
-      { new: true, runValidators: true }
-    );
+    // --- Custom validation ---
+    if (updates.workStatus === "experienced") {
+      if (!updates.experience || updates.experience.length === 0) {
+        return res.status(400).json({
+          message: "Experience details are required for experienced users"
+        });
+      }
+    }
+
+    let updatedUser;
+    if (req.user.role === "admin") {
+      updatedUser = await AdminUser.findOneAndUpdate(
+        { _id: req.user._id, is_deleted: false },
+        updates,
+        { new: true, runValidators: true }
+      );
+    } else {
+      updatedUser = await RegularUser.findOneAndUpdate(
+        { _id: req.user._id, is_deleted: false },
+        updates,
+        { new: true, runValidators: true }
+      );
+    }
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });

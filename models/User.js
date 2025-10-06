@@ -66,30 +66,10 @@ const userSpecificSchema = new mongoose.Schema({
     trim: true
   }],
   experience: [{
-    company: {
-      type: String,
-      required: function () {
-        return this.parent().workStatus === 'experienced';
-      }
-    },
-    position: {
-      type: String,
-      required: function () {
-        return this.parent().workStatus === 'experienced';
-      }
-    },
-    startDate: {
-      type: Date,
-      required: function () {
-        return this.parent().workStatus === 'experienced';
-      }
-    },
-    endDate: {
-      type: Date,
-      required: function () {
-        return this.parent().workStatus === 'experienced';
-      }
-    }
+    company: String,
+    position: String,
+    startDate: Date,
+    endDate: Date
   }],
   education: [{
     institution: String,
@@ -165,3 +145,5 @@ const RegularUser = User.discriminator('user', userSpecificSchema);
 const AdminUser = User.discriminator('admin', new mongoose.Schema({})); // Empty schema for admin
 
 export default User;
+export { RegularUser, AdminUser };
+
