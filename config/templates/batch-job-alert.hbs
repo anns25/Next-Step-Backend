@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header p { margin: 10px 0 0 0; opacity: 0.9; }
+        .content { padding: 30px 20px; }
+        .job-card { background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px; padding: 15px; margin: 15px 0; transition: transform 0.2s; }
+        .job-card:hover { transform: translateX(5px); }
+        .job-card h3 { margin: 0 0 10px 0; color: #059669; font-size: 18px; }
+        .job-meta { color: #6b7280; font-size: 14px; margin: 5px 0; }
+        .job-meta span { margin-right: 15px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px; font-size: 14px; }
+        .summary { background: #ecfdf5; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center; }
+        .summary h2 { margin: 0; color: #059669; font-size: 32px; }
+        .summary p { margin: 5px 0 0 0; color: #6b7280; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .footer a { color: #10b981; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📬 Your {{capitalize frequency}} Job Digest</h1>
+            <p>{{formatDate currentDate}}</p>
+        </div>
+        <div class="content">
+            <p>Hi {{username}},</p>
+            
+            <div class="summary">
+                <h2>{{jobCount}}</h2>
+                <p>new job{{#if (gt jobCount 1)}}s{{/if}} matching your criteria</p>
+            </div>
+            
+            {{#each jobs}}
+            <div class="job-card">
+                <h3>{{this.title}}</h3>
+                <p><strong>{{this.company.name}}</strong></p>
+                <div class="job-meta">
+                    <span>📍 {{formatLocation this.location}}</span>
+                    <span>💼 {{capitalize this.jobType}}</span>
+                    <span>🎓 {{capitalize this.experienceLevel}}</span>
+                </div>
+                {{#if this.salary.min}}
+                <div class="job-meta">
+                    💰 {{formatSalary this.salary.min this.salary.max this.salary.currency this.salary.period}}
+                </div>
+                {{/if}}
+                <a href="{{../frontendUrl}}/jobs/{{this._id}}" class="btn">View Details →</a>
+            </div>
+            {{/each}}
+            
+            <p style="margin-top: 30px;">Happy job hunting! 🎯</p>
+        </div>
+        <div class="footer">
+            <p>You received this {{frequency}} digest for: <strong>{{alertName}}</strong></p>
+            <p><a href="{{settingsUrl}}">Manage Alerts</a> | <a href="{{editAlertUrl}}">Change Frequency</a></p>
+        </div>
+    </div>
+</body>
+</html>

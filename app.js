@@ -12,6 +12,9 @@ import job from "./routes/job.js";
 import company from "./routes/company.js"
 import user from "./routes/user.js";
 import application from "./routes/application.js";
+import subscription from "./routes/subscription.js";
+import jobAlert from "./routes/jobAlert.js";
+import jobAlertScheduler from "./services/jobAlertScheduler.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +44,13 @@ app.use('/admin', admin);
 app.use('/company', company);
 app.use('/job', job);
 app.use('/application', application);
+app.use('/subscription', subscription);
+app.use('/job-alert', jobAlert);
+
+
+// Start job alert scheduler
+jobAlertScheduler.start();
+console.log('Job alert scheduler started');
 
 app.listen(port, (req, res) =>{
     console.log("Server running...", port);

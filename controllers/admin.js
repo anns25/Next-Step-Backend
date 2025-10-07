@@ -70,7 +70,7 @@ export const getAllUsersByAdmin = async (req, res) => {
       emailVerified
     } = req.query;
 
-    const query = { is_deleted: false, role: { $ne: 'admin' }};
+    const query = { is_deleted: false, role: { $ne: 'admin' } };
 
     if (role) query.role = role;
     if (emailVerified !== undefined) query.emailVerified = emailVerified === 'true';
@@ -249,134 +249,134 @@ export const deleteCompany = async (req, res) => {
 
 // Admin: Get All Jobs (active + inactive)
 export const getAllJobsByAdmin = async (req, res) => {
-    try {
-        const {
-            page = 1,
-            limit = 10,
-            search,
-            company,
-            jobType,
-            experienceLevel,
-            locationType,
-            isActive // <-- optional, only filter if passed
-        } = req.query;
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      company,
+      jobType,
+      experienceLevel,
+      locationType,
+      isActive // <-- optional, only filter if passed
+    } = req.query;
 
-        const pipeline = [];
+    const pipeline = [];
 
-        // Stage 1: Match basic filters
-        const matchStage = {
-            $match: {
-                is_deleted: false
-            }
-        };
+    // Stage 1: Match basic filters
+    const matchStage = {
+      $match: {
+        is_deleted: false
+      }
+    };
 
-        // Apply isActive filter only if query param is given
-        if (isActive !== undefined) {
-            matchStage.$match.isActive = isActive === 'true' || isActive === true;
-        }
-
-        if (jobType) matchStage.$match.jobType = jobType;
-        if (experienceLevel) matchStage.$match.experienceLevel = experienceLevel;
-        if (locationType) matchStage.$match['location.type'] = locationType;
-
-        pipeline.push(matchStage);
-
-        // Stage 2: Lookup company
-        pipeline.push({
-            $lookup: {
-                from: 'companies',
-                localField: 'company',
-                foreignField: '_id',
-                as: 'companyInfo'
-            }
-        });
-
-        // Stage 3: Unwind company
-        pipeline.push({
-            $unwind: {
-                path: '$companyInfo',
-                preserveNullAndEmptyArrays: false
-            }
-        });
-
-        // Stage 4: Replace company field
-        pipeline.push({
-            $addFields: {
-                company: '$companyInfo'
-            }
-        });
-
-        // Stage 5: Filter by company name
-        if (company) {
-            pipeline.push({
-                $match: {
-                    'company.name': { $regex: company, $options: 'i' }
-                }
-            });
-        }
-
-        // Stage 6: Search filter
-        if (search) {
-            pipeline.push({
-                $match: {
-                    $or: [
-                        { title: { $regex: search, $options: 'i' } },
-                        { description: { $regex: search, $options: 'i' } },
-                        { tags: { $in: [new RegExp(search, 'i')] } }
-                    ]
-                }
-            });
-        }
-
-        // Stage 7: Lookup createdBy
-        pipeline.push({
-            $lookup: {
-                from: 'users',
-                localField: 'createdBy',
-                foreignField: '_id',
-                as: 'createdByInfo'
-            }
-        });
-
-        pipeline.push({
-            $addFields: {
-                createdBy: { $arrayElemAt: ['$createdByInfo', 0] }
-            }
-        });
-
-        // Stage 8: Cleanup
-        pipeline.push({
-            $project: {
-                companyInfo: 0,
-                createdByInfo: 0
-            }
-        });
-
-        // Stage 9: Sort
-        pipeline.push({ $sort: { createdAt: -1 } });
-
-        // Pagination
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const jobs = await Job.aggregate([
-            ...pipeline,
-            { $skip: skip },
-            { $limit: parseInt(limit) }
-        ]);
-
-        const totalPipeline = [...pipeline, { $count: 'total' }];
-        const totalResult = await Job.aggregate(totalPipeline);
-        const total = totalResult.length > 0 ? totalResult[0].total : 0;
-
-        res.json({
-            jobs,
-            totalPages: Math.ceil(total / limit),
-            currentPage: parseInt(page),
-            total
-        });
-    } catch (error) {
-        console.error('Error in getAllJobsAdmin:', error);
-        res.status(500).json({ message: error.message });
+    // Apply isActive filter only if query param is given
+    if (isActive !== undefined) {
+      matchStage.$match.isActive = isActive === 'true' || isActive === true;
     }
+
+    if (jobType) matchStage.$match.jobType = jobType;
+    if (experienceLevel) matchStage.$match.experienceLevel = experienceLevel;
+    if (locationType) matchStage.$match['location.type'] = locationType;
+
+    pipeline.push(matchStage);
+
+    // Stage 2: Lookup company
+    pipeline.push({
+      $lookup: {
+        from: 'companies',
+        localField: 'company',
+        foreignField: '_id',
+        as: 'companyInfo'
+      }
+    });
+
+    // Stage 3: Unwind company
+    pipeline.push({
+      $unwind: {
+        path: '$companyInfo',
+        preserveNullAndEmptyArrays: false
+      }
+    });
+
+    // Stage 4: Replace company field
+    pipeline.push({
+      $addFields: {
+        company: '$companyInfo'
+      }
+    });
+
+    // Stage 5: Filter by company name
+    if (company) {
+      pipeline.push({
+        $match: {
+          'company.name': { $regex: company, $options: 'i' }
+        }
+      });
+    }
+
+    // Stage 6: Search filter
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { tags: { $in: [new RegExp(search, 'i')] } }
+          ]
+        }
+      });
+    }
+
+    // Stage 7: Lookup createdBy
+    pipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        as: 'createdByInfo'
+      }
+    });
+
+    pipeline.push({
+      $addFields: {
+        createdBy: { $arrayElemAt: ['$createdByInfo', 0] }
+      }
+    });
+
+    // Stage 8: Cleanup
+    pipeline.push({
+      $project: {
+        companyInfo: 0,
+        createdByInfo: 0
+      }
+    });
+
+    // Stage 9: Sort
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const jobs = await Job.aggregate([
+      ...pipeline,
+      { $skip: skip },
+      { $limit: parseInt(limit) }
+    ]);
+
+    const totalPipeline = [...pipeline, { $count: 'total' }];
+    const totalResult = await Job.aggregate(totalPipeline);
+    const total = totalResult.length > 0 ? totalResult[0].total : 0;
+
+    res.json({
+      jobs,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    console.error('Error in getAllJobsAdmin:', error);
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
@@ -404,6 +404,20 @@ export const createJob = async (req, res) => {
 
     const job = new Job(jobData);
     await job.save();
+    await job.populate('company', 'name logo industry location');
+
+    // Trigger notifications asynchronously
+    Promise.all([
+      notifySubscribers(job, companyExists),
+      checkJobAlerts(job, companyExists)
+    ]).then(([subscriptionResult, alertResult]) => {
+      console.log('Notifications sent:', {
+        subscriptions: subscriptionResult,
+        alerts: alertResult
+      });
+    }).catch(error => {
+      console.error('Notification error:', error);
+    });
 
     // Update company's total jobs count
     await Company.findByIdAndUpdate(companyId, {

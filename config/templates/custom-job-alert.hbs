@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 20px; }
+        .job-card { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .job-card h2 { margin: 0 0 15px 0; color: #d97706; font-size: 22px; }
+        .job-detail { margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #fef3c7; }
+        .job-detail:last-child { border-bottom: none; }
+        .job-detail strong { color: #92400e; display: inline-block; width: 140px; }
+        .btn { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .btn:hover { opacity: 0.9; }
+        .alert-name { background: #fef3c7; color: #92400e; padding: 5px 15px; border-radius: 20px; display: inline-block; margin-bottom: 10px; font-size: 14px; font-weight: bold; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .footer a { color: #d97706; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Job Alert Match!</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{username}},</p>
+            <p>We found a new job that matches your <strong>"{{alertName}}"</strong> job alert!</p>
+            
+            <div class="job-card">
+                <span class="alert-name">Alert: {{alertName}}</span>
+                <h2>{{jobTitle}}</h2>
+                <p><strong>at {{companyName}}</strong></p>
+                
+                <div class="job-detail">
+                    <strong>📍 Location:</strong> {{formatLocation location}}
+                </div>
+                <div class="job-detail">
+                    <strong>💼 Job Type:</strong> {{capitalize jobType}}
+                </div>
+                <div class="job-detail">
+                    <strong>🎓 Level:</strong> {{capitalize experienceLevel}}
+                </div>
+                {{#if salary.min}}
+                <div class="job-detail">
+                    <strong>💰 Salary:</strong> {{formatSalary salary.min salary.max salary.currency salary.period}}
+                </div>
+                {{/if}}
+                <div class="job-detail">
+                    <strong>📝 Description:</strong> {{substring description 0 200}}...
+                </div>
+                
+                <a href="{{jobUrl}}" class="btn">View Job Details →</a>
+            </div>
+            
+            <p>This job matches your search criteria. Act fast!</p>
+        </div>
+        <div class="footer">
+            <p>You received this email because of your active job alert: <strong>{{alertName}}</strong></p>
+            <p><a href="{{settingsUrl}}">Manage Job Alerts</a> | <a href="{{editAlertUrl}}">Edit This Alert</a></p>
+        </div>
+    </div>
+</body>
+</html>
