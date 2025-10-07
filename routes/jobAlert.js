@@ -21,7 +21,7 @@ jobAlert.get('/:id', getJobAlertById);
 jobAlert.post(':id/test', testJobAlert);
 
 //Update Job Alert
-jobAlert.patch(':id/', validateUpdateJobAlert, validate, updateJobAlert);
+jobAlert.patch('/:id', validateUpdateJobAlert, validate, updateJobAlert);
 
 //toggle job alert status
 jobAlert.patch('/:id/toggle', toggleJobAlertStatus);

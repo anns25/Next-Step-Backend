@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .alert-badges { margin: 15px 0; }
+        .alert-badge { background: rgba(255,255,255,0.2); color: white; padding: 5px 12px; border-radius: 15px; display: inline-block; margin: 3px; font-size: 13px; }
+        .content { padding: 30px 20px; }
+        .job-card { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .job-card h2 { margin: 0 0 15px 0; color: #d97706; font-size: 22px; }
+        .job-detail { margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #fef3c7; }
+        .job-detail:last-child { border-bottom: none; }
+        .job-detail strong { color: #92400e; display: inline-block; width: 140px; }
+        .btn { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .match-info { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .match-info strong { color: #92400e; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .footer a { color: #d97706; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 {{alertCount}} Job Alert{{#if (gt alertCount 1)}}s{{/if}} Matched!</h1>
+            <div class="alert-badges">
+                {{#each matchedAlerts}}
+                <span class="alert-badge">{{this.name}}</span>
+                {{/each}}
+            </div>
+        </div>
+        <div class="content">
+            <p>Hi {{username}},</p>
+            
+            <div class="match-info">
+                <strong>Great news!</strong> This job matches <strong>{{alertCount}}</strong> of your active job alerts:
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    {{#each matchedAlerts}}
+                    <li>{{this.name}}</li>
+                    {{/each}}
+                </ul>
+            </div>
+            
+            <div class="job-card">
+                <h2>{{jobTitle}}</h2>
+                <p><strong>at {{companyName}}</strong></p>
+                
+                <div class="job-detail">
+                    <strong>📍 Location:</strong> {{formatLocation location}}
+                </div>
+                <div class="job-detail">
+                    <strong>💼 Job Type:</strong> {{capitalize jobType}}
+                </div>
+                <div class="job-detail">
+                    <strong>🎓 Level:</strong> {{capitalize experienceLevel}}
+                </div>
+                {{#if salary.min}}
+                <div class="job-detail">
+                    <strong>💰 Salary:</strong> {{formatSalary salary.min salary.max salary.currency salary.period}}
+                </div>
+                {{/if}}
+                <div class="job-detail">
+                    <strong>📝 Description:</strong> {{substring description 0 200}}...
+                </div>
+                
+                <a href="{{jobUrl}}" class="btn">View Job Details →</a>
+            </div>
+            
+            <p>This position matches multiple criteria you're looking for. Don't miss out!</p>
+        </div>
+        <div class="footer">
+            <p>You received this email because of your active job alerts.</p>
+            <p><a href="{{settingsUrl}}">Manage Job Alerts</a></p>
+        </div>
+    </div>
+</body>
+</html>

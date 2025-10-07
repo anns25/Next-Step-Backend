@@ -3,6 +3,7 @@ import User from '../models/User.js';
 
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
+import { checkJobAlerts, notifySubscribers } from '../services/notificationService.js';
 
 // Add this function at the end of your admin.js file, before the closing
 
@@ -408,8 +409,8 @@ export const createJob = async (req, res) => {
 
     // Trigger notifications asynchronously
     Promise.all([
-      notifySubscribers(job, companyExists),
-      checkJobAlerts(job, companyExists)
+      notifySubscribers(job, company),
+      checkJobAlerts(job, company)
     ]).then(([subscriptionResult, alertResult]) => {
       console.log('Notifications sent:', {
         subscriptions: subscriptionResult,
