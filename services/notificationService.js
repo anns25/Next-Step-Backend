@@ -19,7 +19,7 @@ export const sendCompanyJobNotification = async (user, job, company, subscriptio
             experienceLevel: job.experienceLevel,
             salary: job.salary,
             description: job.description,
-            jobUrl: `${FRONTEND_URL}/jobs/${job._id}`,
+            jobUrl: `${FRONTEND_URL}/user/jobs`,
             settingsUrl: `${FRONTEND_URL}/settings/subscriptions`,
             unsubscribeUrl: `${FRONTEND_URL}/subscriptions/${subscriptionId}/unsubscribe`
         });
@@ -56,7 +56,7 @@ export const sendCustomJobAlertNotification = async (user, job, company, alert) 
             experienceLevel: job.experienceLevel,
             salary: job.salary,
             description: job.description,
-            jobUrl: `${FRONTEND_URL}/jobs/${job._id}`,
+            jobUrl: `${FRONTEND_URL}/user/jobs`,
             settingsUrl: `${FRONTEND_URL}/settings/job-alerts`,
             editAlertUrl: `${FRONTEND_URL}/job-alerts/${alert._id}/edit`
         });
@@ -193,10 +193,10 @@ export const checkJobAlerts = async (job, company) => {
             return { notified: 0, errors: 0 };
         }
 
-        // 🔥 NEW: Group alerts by user to deduplicate
-        const userAlertMap = new Map(); // userId -> [alerts that matched]
+        // 🔥 Group alerts by user to deduplicate
+        const userAlertMap = new Map(); // userId -> {user, matchedAlerts[]}
 
-        // First pass: Check which alerts match
+        // First pass: Check which alerts match and group by user
         for (const alert of jobAlerts) {
             if (alert.matchesJob(job)) {
                 const userId = alert.user._id.toString();
@@ -212,46 +212,64 @@ export const checkJobAlerts = async (job, company) => {
             }
         }
 
-        // Second Pass : Send ONE notification per user
+        if (userAlertMap.size === 0) {
+            console.log('No job alerts matched this job');
+            return { notified: 0, errors: 0 };
+        }
 
+        // Second Pass: Send ONE notification per user
         let notified = 0;
         let errors = 0;
 
-        for (const alert of jobAlerts) {
+        for (const [userId, userData] of userAlertMap.entries()) {
             try {
-                // Check if job matches alert criteria
-                if (!alert.matchesJob(job)) {
+                const { user, matchedAlerts } = userData;
+
+                // Check if user wants email notifications (use first alert's preferences)
+                if (!matchedAlerts[0].notificationPreferences.email) {
                     continue;
                 }
 
-                // Send notification based on preferences
-                if (alert.notificationPreferences.email) {
-                    const result = await sendCustomJobAlertNotification(
-                        alert.user,
+                let result;
+
+                // If multiple alerts matched, send consolidated notification
+                if (matchedAlerts.length > 1) {
+                    console.log(`Sending consolidated alert to ${user.email} (${matchedAlerts.length} alerts matched)`);
+                    result = await sendConsolidatedJobAlert(
+                        user,
                         job,
                         company,
                         matchedAlerts
                     );
+                } else {
+                    // Single alert matched, send regular notification
+                    console.log(`Sending single alert to ${user.email}`);
+                    result = await sendCustomJobAlertNotification(
+                        user,
+                        job,
+                        company,
+                        matchedAlerts[0]
+                    );
+                }
 
-                    if (result.success) {
-                        notified++;
-                        // Update ALL matched alerts
-                        for (const alert of matchedAlerts) {
-                            alert.totalMatches += 1;
-                            alert.lastNotificationSent = new Date();
-                            alert.lastChecked = new Date();
-                            await alert.save();
-                        }
-                    } else {
-                        errors++;
+                if (result.success) {
+                    notified++;
+                    // Update ALL matched alerts for this user
+                    for (const alert of matchedAlerts) {
+                        alert.totalMatches += 1;
+                        alert.lastNotificationSent = new Date();
+                        alert.lastChecked = new Date();
+                        await alert.save();
                     }
+                } else {
+                    errors++;
                 }
 
                 // Add delay to avoid overwhelming email server
                 await new Promise(resolve => setTimeout(resolve, 100));
 
             } catch (error) {
-                console.error(`Error processing alert for user ${alert.user.email}:`, error.message);
+                console.error(`Error processing alerts for user ${userData.user.email}:`, error.message);
                 errors++;
             }
         }
@@ -284,7 +302,7 @@ export const sendConsolidatedJobAlert = async (user, job, company, matchedAlerts
             experienceLevel: job.experienceLevel,
             salary: job.salary,
             description: job.description,
-            jobUrl: `${FRONTEND_URL}/jobs/${job._id}`,
+            jobUrl: `${FRONTEND_URL}/user/jobs`,
             settingsUrl: `${FRONTEND_URL}/settings/job-alerts`,
             matchedAlerts: matchedAlerts.map(a => ({
                 name: a.name,

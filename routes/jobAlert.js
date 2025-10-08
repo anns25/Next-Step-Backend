@@ -18,7 +18,7 @@ jobAlert.get('/', getMyJobAlerts);
 jobAlert.get('/:id', getJobAlertById);
 
 //test job alert (find matching jobs)
-jobAlert.post(':id/test', testJobAlert);
+jobAlert.post('/:id/test', testJobAlert);
 
 //Update Job Alert
 jobAlert.patch('/:id', validateUpdateJobAlert, validate, updateJobAlert);

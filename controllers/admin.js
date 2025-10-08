@@ -407,18 +407,25 @@ export const createJob = async (req, res) => {
     await job.save();
     await job.populate('company', 'name logo industry location');
 
-    // Trigger notifications asynchronously
-    Promise.all([
-      notifySubscribers(job, company),
-      checkJobAlerts(job, company)
-    ]).then(([subscriptionResult, alertResult]) => {
-      console.log('Notifications sent:', {
-        subscriptions: subscriptionResult,
-        alerts: alertResult
-      });
-    }).catch(error => {
-      console.error('Notification error:', error);
-    });
+    // Run one after the other with a delay
+    (async () => {
+      try {
+        const subscriptionResult = await notifySubscribers(job, company);
+        console.log('Subscriptions:', subscriptionResult);
+
+        // Wait 500ms before sending job alerts
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const alertResult = await checkJobAlerts(job, company);
+        console.log('Alerts:', alertResult);
+
+        console.log('=== NOTIFICATION RESULTS ===');
+        console.log('Total: Subscriptions:', subscriptionResult, 'Alerts:', alertResult);
+        console.log('===========================');
+      } catch (error) {
+        console.error('Notification error:', error);
+      }
+    })();
 
     // Update company's total jobs count
     await Company.findByIdAndUpdate(companyId, {

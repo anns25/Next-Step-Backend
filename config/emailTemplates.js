@@ -30,6 +30,12 @@ handlebars.registerHelper('formatLocation', function(location) {
     return `${location.city || ''}, ${location.country || ''}`.trim();
 });
 
+// Substring helper for truncating text
+handlebars.registerHelper('substring', function(str, start, length) {
+    if (!str) return '';
+    return str.substring(start, start + length);
+});
+
 // Load and compile templates
 const loadTemplate = (templateName) => {
     const templatePath = path.join(__dirname, 'templates', `${templateName}.hbs`);
