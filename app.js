@@ -15,6 +15,7 @@ import application from "./routes/application.js";
 import subscription from "./routes/subscription.js";
 import jobAlert from "./routes/jobAlert.js";
 import jobAlertScheduler from "./services/jobAlertScheduler.js";
+import interview from "./routes/interview.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +47,7 @@ app.use('/job', job);
 app.use('/application', application);
 app.use('/subscription', subscription);
 app.use('/job-alert', jobAlert);
+app.use('/interview', interview);
 
 
 // Start job alert scheduler

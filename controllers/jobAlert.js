@@ -195,6 +195,10 @@ export const testJobAlert = async (req, res) => {
       return res.status(404).json({ message: 'Job alert not found' });
     }
 
+    //Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10
+
     // Get recent jobs (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -208,11 +212,22 @@ export const testJobAlert = async (req, res) => {
     // Filter jobs that match the alert criteria
     const matchingJobs = recentJobs.filter(job => jobAlert.matchesJob(job));
 
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedJobs = matchingJobs.slice(startIndex, endIndex);
+
     res.json({
       message: 'Test completed successfully',
       totalRecentJobs: recentJobs.length,
       matchingJobs: matchingJobs.length,
-      jobs: matchingJobs.slice(0, 10) // Return first 10 matches
+      jobs: paginatedJobs,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(matchingJobs.length / limit),
+        limit: limit,
+        total: matchingJobs.length
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
