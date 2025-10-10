@@ -2,7 +2,7 @@ import Interview from '../models/Interview.js';
 import nodemailer from 'nodemailer';
 
 // Create email transporter (configure with your email service)
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
   secure: true,

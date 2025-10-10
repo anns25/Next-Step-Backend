@@ -4,6 +4,10 @@ import Job from '../models/Job.js';
 import Company from '../models/Company.js';
 import User from '../models/User.js';
 
+const isAdmin = (user) => {
+  return user.role === 'admin' || user.isAdmin === true;
+};
+
 // @desc    Create a new interview
 // @route   POST /interview
 // @access  Private
@@ -240,19 +244,24 @@ export const updateInterview = async (req, res) => {
 
 // @desc    Reschedule interview
 // @route   PATCH /interview/:id/reschedule
-// @access  Private
+// @access  Private (Admin only)
 export const rescheduleInterview = async (req, res) => {
   try {
+    // Check if user is admin
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        message: 'Access denied. Only administrators can reschedule interviews.'
+      });
+    }
+
     const { scheduledDate, duration, location } = req.body;
 
     if (!scheduledDate) {
       return res.status(400).json({ message: 'New scheduled date is required' });
     }
 
-    const interview = await Interview.findOne({
-      _id: req.params.id,
-      user: req.user._id
-    });
+    // Remove user restriction - admin can reschedule any interview
+    const interview = await Interview.findById(req.params.id);
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
@@ -274,7 +283,8 @@ export const rescheduleInterview = async (req, res) => {
     await interview.populate([
       { path: 'job', select: 'title' },
       { path: 'company', select: 'name logo' },
-      { path: 'application', select: 'status' }
+      { path: 'application', select: 'status' },
+      { path: 'user', select: 'firstName lastName email' }
     ]);
 
     res.json({
@@ -287,15 +297,21 @@ export const rescheduleInterview = async (req, res) => {
   }
 };
 
+
 // @desc    Confirm interview
 // @route   PATCH /interview/:id/confirm
-// @access  Private
+// @access  Private (Admin only)
 export const confirmInterview = async (req, res) => {
   try {
-    const interview = await Interview.findOne({
-      _id: req.params.id,
-      user: req.user._id
-    });
+    // Check if user is admin
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        message: 'Access denied. Only administrators can confirm interviews.'
+      });
+    }
+
+    // Find interview without user restriction (admin can confirm any interview)
+    const interview = await Interview.findById(req.params.id);
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
@@ -305,7 +321,8 @@ export const confirmInterview = async (req, res) => {
     await interview.save();
     await interview.populate([
       { path: 'job', select: 'title' },
-      { path: 'company', select: 'name logo' }
+      { path: 'company', select: 'name logo' },
+      { path: 'user', select: 'firstName lastName email' } // Add user info for admin
     ]);
 
     res.json({
@@ -323,12 +340,16 @@ export const confirmInterview = async (req, res) => {
 // @access  Private
 export const cancelInterview = async (req, res) => {
   try {
-    const { reason } = req.body;
+    const { reason } = req.body || {};
+    // Check if user is admin
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        message: 'Access denied. Only administrators can confirm interviews.'
+      });
+    }
 
-    const interview = await Interview.findOne({
-      _id: req.params.id,
-      user: req.user._id
-    });
+    // Find interview without user restriction (admin can confirm any interview)
+    const interview = await Interview.findById(req.params.id);
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
@@ -363,12 +384,17 @@ export const cancelInterview = async (req, res) => {
 // @access  Private
 export const completeInterview = async (req, res) => {
   try {
-    const { feedback, outcome, nextSteps } = req.body;
+    const { feedback, outcome, nextSteps } = req.body || {};
 
-    const interview = await Interview.findOne({
-      _id: req.params.id,
-      user: req.user._id
-    });
+    // Check if user is admin
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        message: 'Access denied. Only administrators can confirm interviews.'
+      });
+    }
+
+    // Find interview without user restriction (admin can confirm any interview)
+    const interview = await Interview.findById(req.params.id);
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
@@ -409,7 +435,7 @@ export const completeInterview = async (req, res) => {
 // @access  Private
 export const updatePreparation = async (req, res) => {
   try {
-    const { notes, questions, research, documents } = req.body;
+    const { notes, questions, research, documents } = req.body || {};
 
     const interview = await Interview.findOne({
       _id: req.params.id,

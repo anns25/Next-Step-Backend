@@ -16,6 +16,7 @@ import subscription from "./routes/subscription.js";
 import jobAlert from "./routes/jobAlert.js";
 import jobAlertScheduler from "./services/jobAlertScheduler.js";
 import interview from "./routes/interview.js";
+import { startInterviewReminderCron } from "./cron/interviewReminderCron.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +54,10 @@ app.use('/interview', interview);
 // Start job alert scheduler
 jobAlertScheduler.start();
 console.log('Job alert scheduler started');
+
+// Interview reminders
+startInterviewReminderCron(); 
+console.log("Interview reminder cron started");
 
 app.listen(port, (req, res) =>{
     console.log("Server running...", port);

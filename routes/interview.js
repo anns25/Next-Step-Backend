@@ -23,13 +23,13 @@ import {
   getInterviewsValidator,
   interviewIdValidator
 } from '../validators/interviewValidator.js';
-import { protect } from '../middlewares/auth.js';
+import { authCheck } from '../middlewares/authCheck.js';
 import { validate } from '../middlewares/validate.js';
 
 const interview = Router();
 
 // All routes are protected
-interview.use(protect);
+interview.use(authCheck);
 
 // Interview CRUD
 interview.post('/', createInterviewValidator, validate, createInterview);
