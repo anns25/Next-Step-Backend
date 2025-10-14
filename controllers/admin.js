@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import { checkJobAlerts, notifySubscribers } from '../services/notificationService.js';
+import Interview from '../models/Interview.js';
 
 // Add this function at the end of your admin.js file, before the closing
 
@@ -533,6 +534,53 @@ export const getAllApplications = async (req, res) => {
   }
 };
 
+// @desc    Get applications for a specific user (Admin only)
+// @route   GET /admin/users/:userId/applications
+// @access  Private (Admin)
+export const getUserApplicationsByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      sortBy = 'applicationDate',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const query = { user: userId, is_deleted: false };
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const applications = await Application.find(query)
+      .populate('job', 'title jobType experienceLevel salary location applicationDeadline')
+      .populate('company', 'name logo industry location')
+      .populate('user', 'firstName lastName email profilePicture')
+      .sort(sort)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Application.countDocuments(query);
+
+    res.json({
+      applications,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching user applications:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Update application status
 export const updateApplicationStatus = async (req, res) => {
   try {
@@ -600,6 +648,73 @@ export const getDashboardStats = async (req, res) => {
       recentApplications
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// complete interview stats
+
+export const getInterviewStatsAdmin = async (req, res) => {
+  try {
+    const { userId, companyId } = req.query; // optional filters
+    const now = new Date();
+
+    // Build query based on filters
+    const query = {};
+    if (userId) query.user = userId;
+    if (companyId) query.company = companyId;
+
+    // Total interviews
+    const totalInterviews = await Interview.countDocuments(query);
+
+    // Upcoming interviews
+    const upcomingInterviews = await Interview.countDocuments({
+      ...query,
+      scheduledDate: { $gte: now },
+      status: { $in: ['scheduled', 'confirmed'] }
+    });
+
+    // Completed interviews
+    const completedInterviews = await Interview.countDocuments({
+      ...query,
+      status: 'completed'
+    });
+
+    // Interviews by status
+    const byStatus = await Interview.aggregate([
+      { $match: query },
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    // Interviews by type
+    const byType = await Interview.aggregate([
+      { $match: query },
+      { $group: { _id: '$type', count: { $sum: 1 } } }
+    ]);
+
+    // Interviews by outcome
+    const byOutcome = await Interview.aggregate([
+      { $match: { ...query, outcome: { $exists: true, $ne: null } } },
+      { $group: { _id: '$outcome', count: { $sum: 1 } } }
+    ]);
+
+    // Average rating across all interviews
+    const avgRating = await Interview.aggregate([
+      { $match: { ...query, 'feedback.rating': { $exists: true } } },
+      { $group: { _id: null, avgRating: { $avg: '$feedback.rating' } } }
+    ]);
+
+    res.json({
+      totalInterviews,
+      upcomingInterviews,
+      completedInterviews,
+      byStatus: Object.fromEntries(byStatus.map(s => [s._id, s.count])),
+      byType: Object.fromEntries(byType.map(t => [t._id, t.count])),
+      byOutcome: Object.fromEntries(byOutcome.map(o => [o._id, o.count])),
+      averageRating: avgRating[0]?.avgRating || 0,
+    });
+  } catch (error) {
+    console.error('Error fetching admin interview stats:', error);
     res.status(500).json({ message: error.message });
   }
 };

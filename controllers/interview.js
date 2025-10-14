@@ -1,21 +1,14 @@
 import Interview from '../models/Interview.js';
 import Application from '../models/Application.js';
-import Job from '../models/Job.js';
-import Company from '../models/Company.js';
-import User from '../models/User.js';
-
-const isAdmin = (user) => {
-  return user.role === 'admin' || user.isAdmin === true;
-};
 
 // @desc    Create a new interview
 // @route   POST /interview
 // @access  Private
 export const createInterview = async (req, res) => {
   try {
-    const userId = req.user._id;
     const {
       applicationId,
+      userId,
       type,
       round,
       scheduledDate,
@@ -145,6 +138,80 @@ export const getMyInterviews = async (req, res) => {
   }
 };
 
+// @desc    Get all interviews (Admin only)
+// @route   GET /admin/interviews
+// @access  Private (Admin)
+export const getAllInterviews = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      type,
+      upcoming,
+      past,
+      userId,
+      companyId,
+      sortBy = 'scheduledDate',
+      sortOrder = 'asc'
+    } = req.query;
+
+    const query = {};
+
+    // Filter by user (if specified)
+    if (userId) {
+      query.user = userId;
+    }
+
+    // Filter by company (if specified)
+    if (companyId) {
+      query.company = companyId;
+    }
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by type
+    if (type) {
+      query.type = type;
+    }
+
+    // Filter by upcoming/past
+    const now = new Date();
+    if (upcoming === 'true') {
+      query.scheduledDate = { $gte: now };
+    } else if (past === 'true') {
+      query.scheduledDate = { $lt: now };
+    }
+
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const interviews = await Interview.find(query)
+      .populate('job', 'title')
+      .populate('company', 'name logo')
+      .populate('application', 'status')
+      .populate('user', 'firstName lastName email profilePicture')
+      .sort(sort)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Interview.countDocuments(query);
+
+    res.json({
+      interviews,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching all interviews:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get upcoming interviews (next 7 days)
 // @route   GET /interview/upcoming
 // @access  Private
@@ -247,12 +314,6 @@ export const updateInterview = async (req, res) => {
 // @access  Private (Admin only)
 export const rescheduleInterview = async (req, res) => {
   try {
-    // Check if user is admin
-    if (!isAdmin(req.user)) {
-      return res.status(403).json({
-        message: 'Access denied. Only administrators can reschedule interviews.'
-      });
-    }
 
     const { scheduledDate, duration, location } = req.body;
 
@@ -303,13 +364,6 @@ export const rescheduleInterview = async (req, res) => {
 // @access  Private (Admin only)
 export const confirmInterview = async (req, res) => {
   try {
-    // Check if user is admin
-    if (!isAdmin(req.user)) {
-      return res.status(403).json({
-        message: 'Access denied. Only administrators can confirm interviews.'
-      });
-    }
-
     // Find interview without user restriction (admin can confirm any interview)
     const interview = await Interview.findById(req.params.id);
 
@@ -341,13 +395,6 @@ export const confirmInterview = async (req, res) => {
 export const cancelInterview = async (req, res) => {
   try {
     const { reason } = req.body || {};
-    // Check if user is admin
-    if (!isAdmin(req.user)) {
-      return res.status(403).json({
-        message: 'Access denied. Only administrators can confirm interviews.'
-      });
-    }
-
     // Find interview without user restriction (admin can confirm any interview)
     const interview = await Interview.findById(req.params.id);
 
@@ -356,6 +403,16 @@ export const cancelInterview = async (req, res) => {
     }
 
     interview.status = 'cancelled';
+
+    // Update application status to under-review when interview is deleted
+    const application = await Application.findById(interview.application);
+    if (application) {
+      //Only update if the current status is interview related
+      if (['interview-scheduled', 'interviewed'].includes(application.status)) {
+        application.status = 'under-review';
+        await application.save();
+      }
+    }
     if (reason) {
       interview.feedback = {
         ...interview.feedback,
@@ -385,13 +442,6 @@ export const cancelInterview = async (req, res) => {
 export const completeInterview = async (req, res) => {
   try {
     const { feedback, outcome, nextSteps } = req.body || {};
-
-    // Check if user is admin
-    if (!isAdmin(req.user)) {
-      return res.status(403).json({
-        message: 'Access denied. Only administrators can confirm interviews.'
-      });
-    }
 
     // Find interview without user restriction (admin can confirm any interview)
     const interview = await Interview.findById(req.params.id);
@@ -477,13 +527,20 @@ export const deleteInterview = async (req, res) => {
   try {
     const interview = await Interview.findOneAndDelete({
       _id: req.params.id,
-      user: req.user._id
     });
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
     }
-
+    // Update application status to under-review when interview is deleted
+    const application = await Application.findById(interview.application);
+    if (application) {
+      //Only update if the current status is interview related
+      if (['interview-scheduled', 'interviewed'].includes(application.status)) {
+        application.status = 'under-review';
+        await application.save();
+      }
+    }
     res.json({ message: 'Interview deleted successfully' });
   } catch (error) {
     console.error('Error deleting interview:', error);
