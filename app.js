@@ -27,7 +27,7 @@ const app = express();
 const port = process.env.PORT;
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5001", 
+    origin: process.env.FRONTEND_URL || "https://next-step-frontend-yneh.onrender.com", 
     credentials: true
 }));
 
