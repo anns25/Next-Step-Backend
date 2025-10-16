@@ -26,10 +26,18 @@ connect();
 const app = express();
 const port = process.env.PORT;
 
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "https://next-step-frontend-yneh.onrender.com", 
-    credentials: true
-}));
+const allowedOrigins = [
+  "https://next-step-frontend-yneh.onrender.com",
+  "http://localhost:3000"
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true, // only if you're using cookies
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
