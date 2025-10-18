@@ -3,6 +3,14 @@ import Job from '../models/Job.js';
 // Get all jobs with pagination and filters
 export const getAllJobs = async (req, res) => {
     try {
+        console.log('🔍 PRODUCTION - Backend received query params:', req.query);
+        console.log('📍 PRODUCTION - Location filters:', {
+            latitude: req.query.latitude,
+            longitude: req.query.longitude,
+            radius: req.query.radius,
+            remoteOnly: req.query.remoteOnly
+        });
+
         const {
             page = 1,
             limit = 10,
@@ -20,6 +28,8 @@ export const getAllJobs = async (req, res) => {
             radius,
             remoteOnly = false
         } = req.query;
+
+        console.log('🎯 PRODUCTION - Parsed location values:', { latitude, longitude, radius, remoteOnly });
 
         // Build aggregation pipeline
         const pipeline = [];
@@ -55,6 +65,23 @@ export const getAllJobs = async (req, res) => {
         }
 
         pipeline.push(matchStage);
+
+        // Add this debug log before radius filtering
+        if (latitude && longitude && radius && !remoteOnly) {
+            console.log('🌍 PRODUCTION - Adding radius-based filtering...');
+            console.log('📏 PRODUCTION - Radius in meters:', parseFloat(radius) * 1000);
+
+            // ... your existing radius filtering code ...
+
+            console.log('✅ PRODUCTION - Radius filtering added to pipeline');
+        } else {
+            console.log('❌ PRODUCTION - No radius filtering applied:', {
+                hasLatitude: !!latitude,
+                hasLongitude: !!longitude,
+                hasRadius: !!radius,
+                remoteOnly: remoteOnly
+            });
+        }
 
         // Radius based filtering stage
 
@@ -218,6 +245,8 @@ export const getAllJobs = async (req, res) => {
             currentPage: parseInt(page),
             total
         });
+        console.log('📊 PRODUCTION - Final jobs count:', jobs.length);
+        console.log('📊 PRODUCTION - Total jobs:', total);
     } catch (error) {
         console.error('Error in getAllJobs:', error);
         res.status(500).json({ message: error.message });
