@@ -12,8 +12,13 @@ export const getAllJobs = async (req, res) => {
             experienceLevel,
             locationType,
             city,
+            state,
             country,
-            isActive = true
+            isActive = true,
+            latitude,
+            longitude,
+            radius,
+            remoteOnly = false
         } = req.query;
 
         // Build aggregation pipeline
@@ -30,22 +35,89 @@ export const getAllJobs = async (req, res) => {
         // Add basic filters
         if (jobType) matchStage.$match.jobType = jobType;
         if (experienceLevel) matchStage.$match.experienceLevel = experienceLevel;
-        if (locationType) matchStage.$match['location.type'] = locationType;
 
-        // Add city and country filters (only for non-remote jobs)
-        if (city && locationType && locationType !== 'remote') {
+        // Remote-only filter
+        if (remoteOnly === 'true' || remoteOnly === true) {
+            matchStage.$match['location.type'] = 'remote';
+        } else if (locationType) {
+            matchStage.$match['location.type'] = locationType;
+        }
+
+        // Location filters
+        if (city && !remoteOnly) {
             matchStage.$match['location.city'] = { $regex: city, $options: 'i' };
         }
-        if (country && locationType && locationType !== 'remote') {
+        if (state && !remoteOnly) {
+            matchStage.$match['location.state'] = { $regex: state, $options: 'i' };
+        }
+        if (country && !remoteOnly) {
             matchStage.$match['location.country'] = { $regex: country, $options: 'i' };
         }
 
         pipeline.push(matchStage);
 
+        // Radius based filtering stage
+
+        if (latitude && longitude && radius && !remoteOnly) {
+            const radiusInMeters = parseFloat(radius) * 1000;
+            pipeline.push({
+                $addFields: {
+                    distance: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: ['$location.coordinates.latitude', null] },
+                                    { $ne: ['$location.coordinates.longitude', null] }
+                                ]
+                            },
+                            then: {
+                                $multiply: [
+                                    6371000, // Earth radius in meters
+                                    {
+                                        $acos: {
+                                            $add: [
+                                                {
+                                                    $multiply: [
+                                                        { $sin: { $degreesToRadians: parseFloat(latitude) } },
+                                                        { $sin: { $degreesToRadians: '$location.coordinates.latitude' } }
+                                                    ]
+                                                },
+                                                {
+                                                    $multiply: [
+                                                        { $cos: { $degreesToRadians: parseFloat(latitude) } },
+                                                        { $cos: { $degreesToRadians: '$location.coordinates.latitude' } },
+                                                        {
+                                                            $cos: {
+                                                                $subtract: [
+                                                                    { $degreesToRadians: '$location.coordinates.longitude' },
+                                                                    { $degreesToRadians: parseFloat(longitude) }
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            else: null
+                        }
+                    }
+                }
+            });
+
+            pipeline.push({
+                $match: {
+                    distance: { $lte: radiusInMeters }
+                }
+            });
+        }
+
         // Stage 2: Lookup company information
         pipeline.push({
             $lookup: {
-                from: 'companies', // Adjust collection name if different
+                from: 'companies',
                 localField: 'company',
                 foreignField: '_id',
                 as: 'companyInfo'
@@ -120,6 +192,13 @@ export const getAllJobs = async (req, res) => {
             $sort: { createdAt: -1 }
         });
 
+        // Sort by distance if radius search, otherwise by date
+        if (latitude && longitude && radius && !remoteOnly) {
+            pipeline.push({ $sort: { distance: 1, createdAt: -1 } });
+        } else {
+            pipeline.push({ $sort: { createdAt: -1 } });
+        }
+
         // Execute aggregation with pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const jobs = await Job.aggregate([
@@ -141,6 +220,55 @@ export const getAllJobs = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in getAllJobs:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get unique locations for autocomplete
+export const getLocationSuggestions = async (req, res) => {
+    try {
+        const { type, query } = req.query; // type: 'city', 'state', 'country'
+
+        if (!type || !['city', 'state', 'country'].includes(type)) {
+            return res.status(400).json({ message: 'Invalid type parameter' });
+        }
+
+        const field = `location.${type}`;
+        const matchQuery = query ? { $regex: query, $options: 'i' } : { $exists: true, $ne: '' };
+
+        const locations = await Job.aggregate([
+            {
+                $match: {
+                    is_deleted: false,
+                    isActive: true,
+                    'location.type': { $ne: 'remote' },
+                    [field]: matchQuery
+                }
+            },
+            {
+                $group: {
+                    _id: `$${field}`,
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { count: -1, _id: 1 }
+            },
+            {
+                $limit: 20
+            },
+            {
+                $project: {
+                    _id: 0,
+                    value: '$_id',
+                    label: '$_id',
+                    count: 1
+                }
+            }
+        ]);
+
+        res.json(locations);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };

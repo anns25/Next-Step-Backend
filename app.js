@@ -28,7 +28,7 @@ const port = process.env.PORT;
 
 const allowedOrigins = [
   "https://next-step-frontend-yneh.onrender.com",
-  "http://localhost:3000"
+  "http://localhost:5001"
 ];
 
 app.use(

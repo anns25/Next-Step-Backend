@@ -5,6 +5,7 @@ import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import { checkJobAlerts, notifySubscribers } from '../services/notificationService.js';
 import Interview from '../models/Interview.js';
+import axios from 'axios';
 
 // Add this function at the end of your admin.js file, before the closing
 
@@ -381,6 +382,37 @@ export const getAllJobsByAdmin = async (req, res) => {
   }
 };
 
+// Calculate geocode using, longitude and latitude
+
+export const geocodeAddress = async (address) => {
+  try {
+    const { city, state, country } = address;
+    const addressString = `${city}, ${state || ''}, ${country}`.trim();
+
+    const response = await axios.get(
+      'https://maps.googleapis.com/maps/api/geocode/json',
+      {
+        params: {
+          address: addressString,
+          key: process.env.GOOGLE_MAPS_API_KEY
+        }
+      }
+    );
+
+    if (response.data.results && response.data.results.length > 0) {
+      const location = response.data.results[0].geometry.location;
+      return {
+        latitude: location.lat,
+        longitude: location.lng
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+};
+
 
 // Create a new job for a company
 export const createJob = async (req, res) => {
@@ -403,6 +435,17 @@ export const createJob = async (req, res) => {
       company: companyId,
       createdBy: req.user._id
     };
+
+
+    // If location is not remote and coordinates not provided, geocode
+    if (jobData.location && jobData.location.type !== 'remote') {
+      if (!jobData.location.coordinates?.latitude || !jobData.location.coordinates?.longitude) {
+        const coords = await geocodeAddress(jobData.location);
+        if (coords) {
+          jobData.location.coordinates = coords;
+        }
+      }
+    }
 
     const job = new Job(jobData);
     await job.save();
