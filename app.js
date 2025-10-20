@@ -44,9 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 
 
 //Serve uploaded files statically
-// Replace line 47 in app.js with:
-app.use('/uploads/resumes', express.static(path.join(__dirname, 'uploads/resumes')));
-app.use('/uploads/images', express.static(path.join(__dirname, 'uploads/images')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.get("/", (req, res) =>{
     res.send("Hello NextStep officially starting...");
 });
