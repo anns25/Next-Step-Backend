@@ -440,6 +440,52 @@ export const getApplicationStats = async (req, res) => {
     }
 };
 
+// Get application counts by company (admin only)
+export const getApplicationCountsByCompany = async (req, res) => {
+    try {
+        // Only admins can access this endpoint
+        if (!isAdmin(req.user)) {
+            return res.status(403).json({
+                message: 'Only administrators can access this endpoint'
+            });
+        }
+
+        const { companyIds } = req.body; // Array of company IDs
+
+        if (!companyIds || !Array.isArray(companyIds)) {
+            return res.status(400).json({ message: 'companyIds array is required' });
+        }
+
+        // Get application counts for each company
+        const applicationCounts = await Application.aggregate([
+            {
+                $match: {
+                    company: { $in: companyIds.map(id => new mongoose.Types.ObjectId(id)) },
+                    is_deleted: false
+                }
+            },
+            {
+                $group: {
+                    _id: '$company',
+                    totalApplications: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Convert to object for easy lookup
+        const countsMap = {};
+        applicationCounts.forEach(item => {
+            countsMap[item._id.toString()] = item.totalApplications;
+        });
+
+        res.json(countsMap);
+
+    } catch (error) {
+        console.error('Error fetching application counts by company:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Get applications for a specific job (for company view, excluding soft deleted)
 export const getJobApplications = async (req, res) => {
     try {

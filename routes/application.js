@@ -2,7 +2,7 @@ import { Router } from "express";
 
 import { authCheck } from "../middlewares/authCheck.js";
 import { validateApplicationCreation, validateApplicationId, validateApplicationQuery, validateApplicationUpdate, validateJobId } from "../validators/applicationValidator.js";
-import { createApplication, deleteApplication, getApplicationById, getApplicationStats, getJobApplications, getUserApplications, restoreApplication, updateApplication } from "../controllers/application.js";
+import { createApplication, deleteApplication, getApplicationById, getApplicationCountsByCompany, getApplicationStats, getJobApplications, getUserApplications, restoreApplication, updateApplication } from "../controllers/application.js";
 import { validate } from "../middlewares/validate.js";
 import { uploadResume } from "../middlewares/multer.js";
 
@@ -16,6 +16,7 @@ application.use(authCheck);
 // User application routes
 application.post('/', uploadResume.single('resume'), validateApplicationCreation, validate, createApplication);
 application.get('/', validateApplicationQuery, validate, getUserApplications);
+application.post('/counts-by-company', getApplicationCountsByCompany);
 application.get('/stats', getApplicationStats);
 //application.patch('/:id/status', validateApplicationUpdate, validate, updateApplicationStatus);
 application.get('/:id', validateApplicationId, validate, getApplicationById);
