@@ -182,6 +182,34 @@ export const getAllJobs = async (req, res) => {
             }
         });
 
+        // NEW STAGE: Lookup application counts
+        pipeline.push({
+            $lookup: {
+                from: 'applications', // Adjust collection name if different
+                localField: '_id',
+                foreignField: 'job',
+                as: 'applications'
+            }
+        });
+
+        // NEW STAGE: Add application count field
+        pipeline.push({
+            $addFields: {
+                applicationCount: {
+                    $size: {
+                        $filter: {
+                            input: '$applications',
+                            cond: {
+                                $not: {
+                                    $in: ['$$this.status', ['withdrawn', 'cancelled']]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         // Stage 8: Project final fields
         pipeline.push({
             $project: {
