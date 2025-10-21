@@ -440,16 +440,8 @@ export const getApplicationStats = async (req, res) => {
     }
 };
 
-// Get application counts by company (admin only)
 export const getApplicationCountsByCompany = async (req, res) => {
     try {
-        // Only admins can access this endpoint
-        if (!isAdmin(req.user)) {
-            return res.status(403).json({
-                message: 'Only administrators can access this endpoint'
-            });
-        }
-
         const { companyIds } = req.body; // Array of company IDs
 
         if (!companyIds || !Array.isArray(companyIds)) {
