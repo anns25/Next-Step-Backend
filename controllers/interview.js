@@ -287,13 +287,14 @@ export const updateInterview = async (req, res) => {
     }
 
     const interview = await Interview.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      {_id: req.params.id},
       updates,
       { new: true, runValidators: true }
     )
       .populate('job', 'title')
       .populate('company', 'name logo')
-      .populate('application', 'status');
+      .populate('application', 'status')
+      .populate('user', 'firstName lastName email');
 
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
