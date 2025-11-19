@@ -25,7 +25,7 @@ const resumeFileFilter = (req, file, cb) => {
     const allowedExtensions = ['.pdf', '.doc', '.docx'];
     const fileExtension = path.extname(file.originalname).toLowerCase();
     
-    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+    if (allowedMimeTypes.includes(file.mimetype) && allowedExtensions.includes(fileExtension)) {
         cb(null, true);
     } else {
         cb(new Error('Only PDF and DOC files are allowed for resumes!'), false);

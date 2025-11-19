@@ -8,6 +8,9 @@ import { validate } from '../middlewares/validate.js';
 import { validateJobCreation, validateJobUpdate } from '../validators/jobValidator.js';
 import { completeInterviewValidator, createInterviewValidator, getInterviewsValidator, interviewIdValidator, rescheduleInterviewValidator, updateInterviewValidator, updatePreparationValidator } from '../validators/interviewValidator.js';
 import { cancelInterview, completeInterview, confirmInterview, createInterview, deleteInterview, getAllInterviews, getInterviewById, rescheduleInterview, sendInterviewReminders, updateInterview, updatePreparation } from '../controllers/interview.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const admin = Router();
 
